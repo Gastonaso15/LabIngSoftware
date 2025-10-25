@@ -1,0 +1,16 @@
+{
+  "siteName": "Casa Principal",
+  "maxPowerWatts": 5000,
+  "rooms": [
+    {
+      "id": "living_room",
+      "name": "Living Room",
+      "desiredTemperature": 22.0,
+      "temperatureTolerance": 0.5,
+      "powerConsumptionWatts": 1500,
+      "priority": 1,
+      "sensorTopic": "home/sensors/living_room/temperature",
+      "switchUrl": "http://switch-living:8080/api/power"
+    }
+  ]
+}

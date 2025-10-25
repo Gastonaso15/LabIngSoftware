@@ -1,0 +1,23 @@
+spring:
+  application:
+    name: labingsoftware-temperature-control
+
+# MQTT Configuration
+mqtt:
+  broker: ${MQTT_BROKER:tcp://localhost:1883}
+  client-id: temp-controller-${random.uuid}
+  auto-reconnect: true
+
+# System Configuration
+temperature-control:
+  config-file: ${CONFIG_PATH:classpath:site-config.json}
+  sensor-timeout-seconds: 300
+  monitoring-interval-seconds: 30
+
+# Logging
+logging:
+  level:
+    root: INFO
+    com.iotest: DEBUG
+  file:
+    name: logs/temperature-control.log

@@ -1,0 +1,24 @@
+{
+"site": "oficina001",
+"maxEnergy": "14 kWh",
+"timeSlot": {
+"contractType":"std",
+"refreshPeriod":"10000 ms"
+},
+"rooms": [
+{
+"name": "office1",
+"expectedTemp": "22",
+"energy": "2 kWh",
+"switch": "http://host:port/switch/1",
+"sensor": "mqtt:topic1"
+},
+{
+"name": "office2",
+"expectedTemp": "21",
+"energy": "2 kWh",
+"switch": "http://host:port/switch/2",
+"sensor": "mqtt:topic2"
+}
+]
+}

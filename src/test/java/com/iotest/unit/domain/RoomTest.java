@@ -14,7 +14,7 @@ class RoomTest {
     private Room room;
 
     @BeforeEach
-    void setUp{
+    void setUp;{
         room = new Room (
                 "living_room",
                 "Living room",

@@ -7,20 +7,17 @@ public class Room {
     private final String name;
     private final double desiredTemperature;
     private final int powerConsumption;
-    private final double temperatureTolerance;
 
     private Double currentTemperature;
     private boolean heatingOn;
     private LocalDateTime lastUpdate;
 
     public Room(String id, String name, double desiredTemperature,
-                int powerConsumption, String switchUrl, int priority,
-                double temperatureTolerance) {
+                int powerConsumption, String switchUrl) {
         this.id = id;
         this.name = name;
         this.desiredTemperature = desiredTemperature;
         this.powerConsumption = powerConsumption;
-        this.temperatureTolerance = temperatureTolerance;
         this.heatingOn = false;
     }
 

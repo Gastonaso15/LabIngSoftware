@@ -28,21 +28,21 @@ class TemperatureControllerTest {
         // 1. Definimos las habitaciones (basado en el site config)
         // Room(sensorId, switchUrl, expectedTemp, energyConsumption)
         room1 = new Room(
-                "R1", // 1. id (ID interno de la habitación)
-                "office1", // 2. name (Nombre de la habitación)
-                22.0, // 3. desiredTemperature
-                2.0,  // 4. powerConsumption (double)
-                "http://host:port/switch/1", // 5. switchUrl
-                "mqtt:topic1" // 6. sensorId
+                "R1",
+                "office1",
+                22.0,
+                2.0,
+                "http://host:port/switch/1",
+                "mqtt:topic1"
         );
 
         room2 = new Room(
-                "R2", // 1. id
-                "office2", // 2. name
-                21.0, // 3. desiredTemperature
-                2.0,  // 4. powerConsumption (double)
-                "http://host:port/switch/2", // 5. switchUrl
-                "mqtt:topic2" // 6. sensorId
+                "R2",
+                "office2",
+                21.0,
+                2.0,
+                "http://host:port/switch/2",
+                "mqtt:topic2"
         );
         // 2. Definimos el estado inicial de los switches (apagados)
         switch1 = new DataSwitch("http://host:port/switch/1", false);
@@ -121,9 +121,9 @@ class TemperatureControllerTest {
     }
 
     @Test
-    @DisplayName("Debe encender ambas habitaciones si hay energía suficiente")
-    void shouldTurnOnBothRoomsWhenEnergyAvailable() {
-        // Configurar controller con maxEnergy = 5.0 (suficiente para ambas)
+    @DisplayName("Debe encender ambas habitaciones simultáneamente si hay energía suficiente")
+    void shouldTurnOnBothRoomsSimultaneously() {
+        // Configurar controller con maxEnergy = 5.0
         Room r1 = new Room("R1", "office1", 22.0, 2.0,
                 "http://host:port/switch/1", "mqtt:topic1");
         Room r2 = new Room("R2", "office2", 21.0, 2.0,
@@ -134,12 +134,19 @@ class TemperatureControllerTest {
 
         TemperatureController ctrl = new TemperatureController(5.0, List.of(r1, r2), List.of(sw1, sw2));
 
-        // Ambas habitaciones frías
-        ctrl.processSensorData(new DataSensor("mqtt:topic1", 18.0, LocalDateTime.now()));
-        List<Operation> ops = ctrl.processSensorData(new DataSensor("mqtt:topic2", 17.0, LocalDateTime.now()));
+        // Actualizar ambas habitaciones a frío primero (sin capturar operaciones)
+        r1.updateTemperature(18.0, LocalDateTime.now());
+        r2.updateTemperature(17.0, LocalDateTime.now());
 
-        // Debe encender ambas (total: 4.0 kWh < 5.0 max)
+        // Ahora procesar cualquier sensor y verificar que se enciendan ambas
+        List<Operation> ops = ctrl.processSensorData(new DataSensor("mqtt:topic1", 18.0, LocalDateTime.now()));
+
+        // Debería encender ambas habitaciones en esta llamada
         assertThat(ops).hasSize(2);
+        assertThat(ops).containsExactlyInAnyOrder(
+                new Operation("http://host:port/switch/1", "ON"),
+                new Operation("http://host:port/switch/2", "ON")
+        );
     }
 
     @Test
@@ -155,22 +162,22 @@ class TemperatureControllerTest {
     }
 
     @Test
-    @DisplayName("Debe respetar el límite de energía exacto")
+    @DisplayName("Debe respetar el límite exacto de energía")
     void shouldRespectExactEnergyLimit() {
-        // maxEnergy = 3.0, room1 consume 2.0, room2 consume 2.0
-        // Solo puede encender 1 habitación
-
-        DataSensor s1 = new DataSensor("mqtt:topic1", 18.0, LocalDateTime.now());
-        List<Operation> ops1 = controller.processSensorData(s1);
+        // Arrange: Room1 se enciende primero (consume 2.0, quedan 1.0 disponibles)
+        DataSensor sensor1 = new DataSensor("mqtt:topic1", 18.0, LocalDateTime.now());
+        List<Operation> ops1 = controller.processSensorData(sensor1);
 
         assertThat(ops1).hasSize(1);
         assertThat(ops1.get(0).getAction()).isEqualTo("ON");
 
-        // Ahora room2 también está fría, pero NO hay energía
-        DataSensor s2 = new DataSensor("mqtt:topic2", 17.0, LocalDateTime.now());
-        List<Operation> ops2 = controller.processSensorData(s2);
+        // Act: Room2 también necesita calefacción pero consume 2.0
+        // Solo hay 1.0 kWh disponibles, NO es suficiente
+        DataSensor sensor2 = new DataSensor("mqtt:topic2", 19.5, LocalDateTime.now());
+        List<Operation> ops2 = controller.processSensorData(sensor2);
 
-        // Solo debería hacer swap si room2 es MÁS prioritaria
-        // (en este caso lo es: 17°C vs 18°C)
+        // Assert: Room2 NO es más prioritaria (19.5°C vs 18.0°C)
+        // entonces NO debe encenderse
+        assertThat(ops2).isEmpty();
     }
 }

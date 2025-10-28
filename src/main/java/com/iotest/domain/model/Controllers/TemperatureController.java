@@ -1,4 +1,4 @@
-package com.iotest.domain;
+package com.iotest.domain.model.Controllers;
 
 import com.iotest.domain.model.DataSensor;
 import com.iotest.domain.model.DataSwitch;

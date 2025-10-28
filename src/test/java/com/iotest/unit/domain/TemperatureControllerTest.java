@@ -27,9 +27,23 @@ class TemperatureControllerTest {
     void setUp() {
         // 1. Definimos las habitaciones (basado en el site config)
         // Room(sensorId, switchUrl, expectedTemp, energyConsumption)
-        room1 = new Room("mqtt:topic1", "http://host:port/switch/1", 22.0, 2.0); // 2.0 kWh
-        room2 = new Room("mqtt:topic2", "http://host:port/switch/2", 21.0, 2.0); // 2.0 kWh
+        room1 = new Room(
+                "R1", // 1. id (ID interno de la habitación)
+                "office1", // 2. name (Nombre de la habitación)
+                22.0, // 3. desiredTemperature
+                2.0,  // 4. powerConsumption (double)
+                "http://host:port/switch/1", // 5. switchUrl
+                "mqtt:topic1" // 6. sensorId
+        );
 
+        room2 = new Room(
+                "R2", // 1. id
+                "office2", // 2. name
+                21.0, // 3. desiredTemperature
+                2.0,  // 4. powerConsumption (double)
+                "http://host:port/switch/2", // 5. switchUrl
+                "mqtt:topic2" // 6. sensorId
+        );
         // 2. Definimos el estado inicial de los switches (apagados)
         switch1 = new DataSwitch("http://host:port/switch/1", false);
         switch2 = new DataSwitch("http://host:port/switch/2", false);
@@ -97,4 +111,66 @@ class TemperatureControllerTest {
                         new Operation("http://host:port/switch/1", "ON")
                 );
             }
+
+    @Test
+    @DisplayName("No debe hacer nada si el sensor no está configurado")
+    void shouldIgnoreUnknownSensor() {
+        DataSensor unknown = new DataSensor("mqtt:unknown", 15.0, LocalDateTime.now());
+        List<Operation> ops = controller.processSensorData(unknown);
+        assertThat(ops).isEmpty();
+    }
+
+    @Test
+    @DisplayName("Debe encender ambas habitaciones si hay energía suficiente")
+    void shouldTurnOnBothRoomsWhenEnergyAvailable() {
+        // Configurar controller con maxEnergy = 5.0 (suficiente para ambas)
+        Room r1 = new Room("R1", "office1", 22.0, 2.0,
+                "http://host:port/switch/1", "mqtt:topic1");
+        Room r2 = new Room("R2", "office2", 21.0, 2.0,
+                "http://host:port/switch/2", "mqtt:topic2");
+
+        DataSwitch sw1 = new DataSwitch("http://host:port/switch/1", false);
+        DataSwitch sw2 = new DataSwitch("http://host:port/switch/2", false);
+
+        TemperatureController ctrl = new TemperatureController(5.0, List.of(r1, r2), List.of(sw1, sw2));
+
+        // Ambas habitaciones frías
+        ctrl.processSensorData(new DataSensor("mqtt:topic1", 18.0, LocalDateTime.now()));
+        List<Operation> ops = ctrl.processSensorData(new DataSensor("mqtt:topic2", 17.0, LocalDateTime.now()));
+
+        // Debe encender ambas (total: 4.0 kWh < 5.0 max)
+        assertThat(ops).hasSize(2);
+    }
+
+    @Test
+    @DisplayName("No debe generar operaciones cuando todas las habitaciones están OK")
+    void shouldDoNothingWhenAllRoomsAtTarget() {
+        room1.updateTemperature(22.5, LocalDateTime.now());
+        room2.updateTemperature(21.5, LocalDateTime.now());
+
+        DataSensor sensor = new DataSensor("mqtt:topic1", 22.5, LocalDateTime.now());
+        List<Operation> ops = controller.processSensorData(sensor);
+
+        assertThat(ops).isEmpty();
+    }
+
+    @Test
+    @DisplayName("Debe respetar el límite de energía exacto")
+    void shouldRespectExactEnergyLimit() {
+        // maxEnergy = 3.0, room1 consume 2.0, room2 consume 2.0
+        // Solo puede encender 1 habitación
+
+        DataSensor s1 = new DataSensor("mqtt:topic1", 18.0, LocalDateTime.now());
+        List<Operation> ops1 = controller.processSensorData(s1);
+
+        assertThat(ops1).hasSize(1);
+        assertThat(ops1.get(0).getAction()).isEqualTo("ON");
+
+        // Ahora room2 también está fría, pero NO hay energía
+        DataSensor s2 = new DataSensor("mqtt:topic2", 17.0, LocalDateTime.now());
+        List<Operation> ops2 = controller.processSensorData(s2);
+
+        // Solo debería hacer swap si room2 es MÁS prioritaria
+        // (en este caso lo es: 17°C vs 18°C)
+    }
 }

@@ -12,7 +12,7 @@ public class Principal {
         ISwitchController ISC = new SwitchController();
 
         String SwitchURL = "http://host:port/switch/1";
-        String SwitchStatus = ISC.getSwitchStatus(SwitchURL);
-        System.out.println(SwitchStatus);
+        //String SwitchStatus = ISC.getSwitchStatus(SwitchURL);
+        //System.out.println(SwitchStatus);
     }
 }

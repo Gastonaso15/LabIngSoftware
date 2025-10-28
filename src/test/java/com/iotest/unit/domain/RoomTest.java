@@ -19,8 +19,9 @@ class RoomTest {
                 "living_room",
                 "Living room",
                 23.0,
-                1200,
-                "http://switch:8080"
+                1200.0,
+                "http://switch:8080",
+                "mqtt:living_room"
         );
     }
 

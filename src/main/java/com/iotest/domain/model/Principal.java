@@ -1,7 +1,7 @@
 package com.iotest.domain.model;
 
-import com.iotest.domain.model.Controllers.ISwitchController;
-import com.iotest.domain.model.Controllers.SwitchController;
+import com.iotest.domain.model.Logica.ISwitchController;
+import com.iotest.domain.model.Logica.SwitchController;
 
 import java.net.http.HttpClient;
 

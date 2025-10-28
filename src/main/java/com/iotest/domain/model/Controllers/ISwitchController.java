@@ -1,3 +1,5 @@
+package com.iotest.domain.model.Controllers;
+
 import java.io.IOException;
 
 public interface ISwitchController {

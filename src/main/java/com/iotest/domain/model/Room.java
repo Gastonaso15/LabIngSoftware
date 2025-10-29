@@ -17,7 +17,7 @@ public class Room {
         this.id = id;
         this.name = name;
         this.desiredTemperature = desiredTemperature;
-        this.powerConsumption = powerConsumption;
+        this.powerConsumption = powerConsumption ;
         this.heatingOn = false;
     }
 

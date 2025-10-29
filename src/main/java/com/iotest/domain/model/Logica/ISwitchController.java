@@ -1,4 +1,4 @@
-package com.iotest.domain.model.Controllers;
+package com.iotest.domain.model.Logica;
 
 import java.io.IOException;
 

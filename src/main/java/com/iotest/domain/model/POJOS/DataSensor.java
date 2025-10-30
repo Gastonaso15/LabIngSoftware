@@ -1,4 +1,4 @@
-package com.iotest.domain.model;
+package com.iotest.domain.model.POJOS;
 
 import java.time.LocalDateTime;
 

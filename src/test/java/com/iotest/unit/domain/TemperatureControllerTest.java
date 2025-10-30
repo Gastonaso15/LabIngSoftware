@@ -1,10 +1,10 @@
 package com.iotest.unit.domain;
 
 import com.iotest.domain.model.Controllers.TemperatureController;
-import com.iotest.domain.model.DataSensor;
-import com.iotest.domain.model.DataSwitch;
+import com.iotest.domain.model.POJOS.DataSensor;
+import com.iotest.domain.model.POJOS.DataSwitch;
 import com.iotest.domain.model.Operation;
-import com.iotest.domain.model.Room;
+import com.iotest.domain.model.POJOS.Room;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;

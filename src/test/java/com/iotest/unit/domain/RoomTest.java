@@ -3,7 +3,7 @@ package com.iotest.unit.domain;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.DisplayName;
-import com.iotest.domain.model.Room;
+import com.iotest.domain.model.POJOS.Room;
 
 import java.time.LocalDateTime;
 

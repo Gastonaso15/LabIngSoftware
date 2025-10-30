@@ -1,4 +1,4 @@
-package com.iotest.domain.model;
+package com.iotest.domain.model.POJOS;
 
 // Representa el estado interno de un switch
 public class DataSwitch {

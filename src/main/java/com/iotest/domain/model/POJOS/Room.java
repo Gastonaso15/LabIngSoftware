@@ -1,5 +1,4 @@
-package com.iotest.domain.model;
-
+package com.iotest.domain.model.POJOS;
 import java.time.LocalDateTime;
 
 public class Room {
@@ -11,13 +10,18 @@ public class Room {
     private Double currentTemperature;
     private boolean heatingOn;
     private LocalDateTime lastUpdate;
+    private Double temperatureTolerance; //aceptable temperature fluctutation
 
     public Room(String id, String name, double desiredTemperature,
-                int powerConsumption, String switchUrl) {
+                int powerConsumption, Double currentTemperature, boolean heatingOn,LocalDateTime lastUpdate, Double temperatureTolerance, String switchUrl) {
         this.id = id;
         this.name = name;
         this.desiredTemperature = desiredTemperature;
         this.powerConsumption = powerConsumption ;
+        this.currentTemperature = currentTemperature;
+        this.heatingOn = heatingOn;
+        this.lastUpdate = lastUpdate;
+        this.temperatureTolerance = temperatureTolerance;
         this.heatingOn = false;
     }
 
@@ -39,6 +43,7 @@ public class Room {
     public String getName() { return name; }
     public double getDesiredTemperature() { return desiredTemperature; }
     public Double getCurrentTemperature() { return currentTemperature; }
+    public Double getTemperatureTolerance() { return temperatureTolerance; }
     public boolean isHeatingOn() { return heatingOn; }
     public void setHeatingOn(boolean heatingOn) { this.heatingOn = heatingOn; }
 }

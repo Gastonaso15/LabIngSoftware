@@ -15,12 +15,12 @@ class RoomTest {
 
     @BeforeEach
     void setUp(){
-        room = new Room (
+        // Using simplified constructor: (sensorId, switchUrl, desiredTemperature, powerConsumption)
+        room = new Room(
                 "living_room",
-                "Living room",
+                "http://switch:8080",
                 23.0,
-                1200,
-                "http://switch:8080"
+                1200
         );
     }
 

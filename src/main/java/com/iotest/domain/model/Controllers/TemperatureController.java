@@ -1,7 +1,10 @@
+package com.iotest.domain.model.Controllers;
+
 import com.iotest.domain.model.POJOS.DataSensor;
 import com.iotest.domain.model.POJOS.DataSwitch;
 import com.iotest.domain.model.Operation;
 import com.iotest.domain.model.POJOS.Room;
+import com.iotest.domain.model.EnergyCost;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -165,7 +168,18 @@ public class TemperatureController {
         return Optional.ofNullable(switchByUrl.get(switchUrl));
     }
 
-    public void turnSwitchOffWhenHighCost(){
-
+    public List<Operation> turnSwitchOffWhenHighCost(String contract){
+        List<Operation> operations = new ArrayList<>();
+        EnergyCost.EnergyZone zone = EnergyCost.currentEnergyZone(contract);
+        if (zone.current() == EnergyCost.HIGH){
+            for (Room room : allRooms){
+                DataSwitch sw = findSwitchByUrl(room.getSwitchUrl()).orElse(null);
+                if (sw != null && sw.isOn()){
+                    operations.add(new Operation(sw.getSwitchUrl(), "OFF"));
+                    sw.setOn(false);
+                }
+            }
+        }
+        return operations;
     }
 }

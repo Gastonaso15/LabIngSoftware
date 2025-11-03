@@ -5,6 +5,7 @@ import com.iotest.domain.model.POJOS.DataSensor;
 import com.iotest.domain.model.POJOS.DataSwitch;
 import com.iotest.domain.model.Operation;
 import com.iotest.domain.model.POJOS.Room;
+import com.iotest.domain.model.EnergyCost;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -58,6 +59,28 @@ class TemperatureControllerTest {
                 assertThat(operations.get(0)).isEqualTo(new Operation("http://host:port/switch/1", "ON"));
 
             }
+
+            @Test
+            @DisplayName("Debe apagar todos los switches si el costo de energía es ALTO")
+            void shouldTurnOffAllWhenEnergyCostIsHigh(){
+                // Arrange: ambos switches encendidos
+                switch1.setOn(true);
+                switch2.setOn(true);
+
+                // Act
+                int currentTariff = EnergyCost.currentEnergyZone(EnergyCost.TEST_CONTRACT_30S).current();
+                List<Operation> operations = controller.turnSwitchOffWhenHighCost(EnergyCost.TEST_CONTRACT_30S);
+
+                // Assert según la tarifa actual
+                if (currentTariff == EnergyCost.HIGH){
+                    assertThat(operations).containsExactlyInAnyOrder(
+                            new Operation("http://host:port/switch/1", "OFF"),
+                            new Operation("http://host:port/switch/2", "OFF")
+                    );
+                } else {
+                    assertThat(operations).isEmpty();
+                }
+            }
             @Test
             @DisplayName("Debe apagar calefactor si la habitación alcanza la temperatura deseada")
             void shouldTurnOffHeaterWhenWarm() {
@@ -96,5 +119,67 @@ class TemperatureControllerTest {
                         new Operation("http://host:port/switch/2", "OFF"),
                         new Operation("http://host:port/switch/1", "ON")
                 );
+            }
+
+            @Test
+            @DisplayName("Debe retornar lista vacía cuando se recibe un sensorId desconocido")
+            void shouldReturnEmptyListWhenSensorIdIsUnknown() {
+                // Arrange: Sensor con ID que no corresponde a ninguna habitación
+                DataSensor sensorData = new DataSensor("mqtt:unknown_sensor", 19.0, LocalDateTime.now());
+
+                // Act
+                List<Operation> operations = controller.processSensorData(sensorData);
+
+                // Assert
+                assertThat(operations).isEmpty();
+            }
+
+            @Test
+            @DisplayName("Debe encender múltiples habitaciones si hay energía suficiente")
+            void shouldTurnOnMultipleRoomsWhenEnergyIsAvailable() {
+                // Arrange: Ambas habitaciones están frías
+                // Límite es 5.0 kWh (suficiente para ambas que consumen 2.0 cada una)
+                TemperatureController controllerWithMoreEnergy = new TemperatureController(
+                        5.0,
+                        List.of(room1, room2),
+                        List.of(switch1, switch2)
+                );
+
+                // Primero actualizamos room1
+                DataSensor sensorData1 = new DataSensor("mqtt:topic1", 19.0, LocalDateTime.now());
+                List<Operation> operations1 = controllerWithMoreEnergy.processSensorData(sensorData1);
+
+                // Luego actualizamos room2
+                DataSensor sensorData2 = new DataSensor("mqtt:topic2", 18.0, LocalDateTime.now());
+                List<Operation> operations2 = controllerWithMoreEnergy.processSensorData(sensorData2);
+
+                // Assert: Primera operación enciende room1
+                assertThat(operations1).hasSize(1);
+                assertThat(operations1.get(0)).isEqualTo(new Operation("http://host:port/switch/1", "ON"));
+
+                // Assert: Segunda operación enciende room2 (ya que hay energía disponible)
+                assertThat(operations2).hasSize(1);
+                assertThat(operations2.get(0)).isEqualTo(new Operation("http://host:port/switch/2", "ON"));
+            }
+
+            @Test
+            @DisplayName("No debe generar operaciones cuando no hay energía y no se puede hacer swap")
+            void shouldNotGenerateOperationsWhenNoEnergyAndNoSwapPossible() {
+                // Arrange: Límite muy bajo (1.0 kWh), ambas habitaciones necesitan calefacción
+                // Pero ninguna puede encenderse porque el consumo es 2.0 cada una
+                TemperatureController controllerWithLowEnergy = new TemperatureController(
+                        1.0,
+                        List.of(room1, room2),
+                        List.of(switch1, switch2)
+                );
+
+                // Room 1 necesita calefacción
+                DataSensor sensorData = new DataSensor("mqtt:topic1", 15.0, LocalDateTime.now());
+
+                // Act
+                List<Operation> operations = controllerWithLowEnergy.processSensorData(sensorData);
+
+                // Assert: No hay operaciones porque no hay energía suficiente
+                assertThat(operations).isEmpty();
             }
 }

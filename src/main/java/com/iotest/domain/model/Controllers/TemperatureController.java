@@ -168,6 +168,10 @@ public class TemperatureController {
         return Optional.ofNullable(switchByUrl.get(switchUrl));
     }
 
+    public double getMaxEnergy() {
+        return maxEnergy;
+    }
+
     public List<Operation> turnSwitchOffWhenHighCost(String contract){
         List<Operation> operations = new ArrayList<>();
         EnergyCost.EnergyZone zone = EnergyCost.currentEnergyZone(contract);

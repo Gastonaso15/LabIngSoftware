@@ -1,0 +1,25 @@
+{
+  "siteName": "Test Site",
+  "maxPowerWatts": 3000,
+  "rooms": [
+    {
+      "id": "room1",
+      "name": "Room 1",
+      "desiredTemperature": 22.0,
+      "temperatureTolerance": 1.0,
+      "powerConsumptionWatts": 2000,
+      "sensorTopic": "mqtt:topic1",
+      "switchUrl": "http://host:port/switch/1"
+    },
+    {
+      "id": "room2",
+      "name": "Room 2",
+      "desiredTemperature": 21.0,
+      "temperatureTolerance": 1.0,
+      "powerConsumptionWatts": 2000,
+      "sensorTopic": "mqtt:topic2",
+      "switchUrl": "http://host:port/switch/2"
+    }
+  ]
+}
+

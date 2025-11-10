@@ -18,7 +18,7 @@ public class SwitchController implements ISwitchController {
 
 public String getSwitchStatus(String SwitchURL) throws IOException, InterruptedException{
 //Hago un request, le paso la url del switch y pido
-    HttpRequest req = HttpRequest.newBuilder(URI.create(SwitchURL + "/status"))
+    HttpRequest req = HttpRequest.newBuilder(URI.create(SwitchURL))
             .GET().timeout(Duration.ofSeconds(5)).header("Accept", "application/json").build();
 
     HttpResponse<String> resp = http.send(req, HttpResponse.BodyHandlers.ofString());
@@ -35,12 +35,12 @@ public String getSwitchStatus(String SwitchURL) throws IOException, InterruptedE
 public String postSwitchStatus(String SwitchURL, boolean estadoDeseado) throws IOException, InterruptedException{
     String estadoSwitch;
     if (estadoDeseado==true) {
-        estadoSwitch = "{\"on\":true}";        // Esto es lo que le voy a cargar pero no sé bien si es lo que le tengo que mandar o no para prenderlo
+        estadoSwitch = "{\"state\":true}";        // Esto es lo que le voy a cargar pero no sé bien si es lo que le tengo que mandar o no para prenderlo
     }else{
-        estadoSwitch = "{\"on\":false}";
+        estadoSwitch = "{\"state\":false}";
     }
 
-    HttpRequest setReq = HttpRequest.newBuilder(URI.create(SwitchURL + "/set"))
+    HttpRequest setReq = HttpRequest.newBuilder(URI.create(SwitchURL))
             .timeout(Duration.ofSeconds(5)).header("Content-Type", "application/json").POST(HttpRequest.BodyPublishers.ofString(estadoSwitch, StandardCharsets.UTF_8)).build();
 
     HttpResponse<String> setResp = http.send(setReq, HttpResponse.BodyHandlers.ofString());

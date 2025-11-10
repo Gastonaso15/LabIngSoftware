@@ -2,6 +2,7 @@ package com.iotest.infrastructure.config;
 
 import com.iotest.domain.service.TemperatureControlService;
 import com.iotest.infrastructure.mqtt.MqttSensorSubscriber;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -21,14 +22,17 @@ public class MqttConfig {
     @ConditionalOnProperty(name = "mqtt.enabled", havingValue = "true", matchIfMissing = true)
     public MqttSensorSubscriber mqttSensorSubscriber(
             TemperatureControlService temperatureControlService,
-            TemperatureControlConfig.SiteConfiguration siteConfiguration) {
+            TemperatureControlConfig.SiteConfiguration siteConfiguration,
+            @Value("${mqtt.broker:tcp://localhost:1883}") String brokerUrl,
+            @Value("${mqtt.client-id:temp-controller}") String clientId,
+            @Value("${mqtt.auto-reconnect:true}") boolean autoReconnect) {
         
         // Extraer los tópicos de los sensores desde la configuración
         List<String> topics = siteConfiguration.getRooms().stream()
                 .map(TemperatureControlConfig.RoomConfig::getSensorTopic)
                 .collect(Collectors.toList());
 
-        return new MqttSensorSubscriber(temperatureControlService, topics);
+        return new MqttSensorSubscriber(temperatureControlService, topics, brokerUrl, clientId, autoReconnect);
     }
 }
 

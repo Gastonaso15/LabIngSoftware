@@ -8,12 +8,12 @@ import org.eclipse.paho.client.mqttv3.*;
 import org.eclipse.paho.client.mqttv3.persist.MemoryPersistence;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Component;
 
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
+import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -21,30 +21,29 @@ import java.util.List;
  * Cliente MQTT que se suscribe a los tópicos de sensores y procesa los mensajes.
  * Los mensajes recibidos se convierten y envían al TemperatureControlService.
  */
-@Component
 public class MqttSensorSubscriber implements MqttCallback {
 
     private static final Logger logger = LoggerFactory.getLogger(MqttSensorSubscriber.class);
 
-    @Value("${mqtt.broker:tcp://localhost:1883}")
-    private String brokerUrl;
-
-    @Value("${mqtt.client-id:temp-controller}")
-    private String clientId;
-
-    @Value("${mqtt.auto-reconnect:true}")
-    private boolean autoReconnect;
-
     private final TemperatureControlService temperatureControlService;
     private final List<String> topicsToSubscribe;
+    private final String brokerUrl;
+    private final String clientId;
+    private final boolean autoReconnect;
     private MqttClient mqttClient;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     public MqttSensorSubscriber(
             TemperatureControlService temperatureControlService,
-            List<String> topicsToSubscribe) {
+            List<String> topicsToSubscribe,
+            String brokerUrl,
+            String clientId,
+            boolean autoReconnect) {
         this.temperatureControlService = temperatureControlService;
         this.topicsToSubscribe = topicsToSubscribe != null ? topicsToSubscribe : new ArrayList<>();
+        this.brokerUrl = brokerUrl;
+        this.clientId = clientId;
+        this.autoReconnect = autoReconnect;
     }
 
     @PostConstruct
@@ -176,7 +175,7 @@ public class MqttSensorSubscriber implements MqttCallback {
         }
         
         // Si no está en el JSON, buscar en los tópicos configurados
-        // Los tópicos configurados pueden venir como "mqtt:topic1" o como paths
+        // Los tópicos configurados pueden venir como "mqtt:" o como paths
         // Si el tópico está en la lista, buscar el sensor_id correspondiente
         for (String configuredTopic : topicsToSubscribe) {
             if (topic.equals(configuredTopic) || topic.endsWith(configuredTopic)) {
@@ -213,6 +212,18 @@ public class MqttSensorSubscriber implements MqttCallback {
         if (jsonNode.has("value")) {
             return jsonNode.get("value").asDouble();
         }
+        // Mensajes del simulador Shelly: params -> "temperature:0" -> tC
+        JsonNode paramsNode = jsonNode.get("params");
+        if (paramsNode != null) {
+            JsonNode shellyTemp = paramsNode.get("temperature:0");
+            if (shellyTemp != null && shellyTemp.has("tC")) {
+                return shellyTemp.get("tC").asDouble();
+            }
+            // Algunos mensajes usan "temperature" directo dentro de params
+            if (paramsNode.has("temperature") && paramsNode.get("temperature").has("tC")) {
+                return paramsNode.get("temperature").get("tC").asDouble();
+            }
+        }
         throw new IllegalArgumentException("No se encontró campo de temperatura en el mensaje");
     }
 
@@ -231,6 +242,16 @@ public class MqttSensorSubscriber implements MqttCallback {
         if (jsonNode.has("time")) {
             String timestampStr = jsonNode.get("time").asText();
             return LocalDateTime.parse(timestampStr);
+        }
+        // Mensajes del simulador Shelly: timestamp en segundos (double) dentro de params.ts o ts
+        JsonNode paramsNode = jsonNode.get("params");
+        if (paramsNode != null && paramsNode.has("ts")) {
+            double epochSeconds = paramsNode.get("ts").asDouble();
+            return LocalDateTime.ofInstant(Instant.ofEpochSecond((long) epochSeconds), ZoneId.systemDefault());
+        }
+        if (jsonNode.has("ts")) {
+            double epochSeconds = jsonNode.get("ts").asDouble();
+            return LocalDateTime.ofInstant(Instant.ofEpochSecond((long) epochSeconds), ZoneId.systemDefault());
         }
         // Usar timestamp actual si no está presente
         return LocalDateTime.now();

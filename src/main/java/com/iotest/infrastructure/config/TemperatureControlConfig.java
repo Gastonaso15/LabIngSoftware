@@ -7,12 +7,19 @@ import com.iotest.domain.model.Logica.ISwitchController;
 import com.iotest.domain.model.Logica.SwitchController;
 import com.iotest.domain.model.POJOS.DataSwitch;
 import com.iotest.domain.model.POJOS.Room;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.io.Resource;
+import org.springframework.core.io.ResourceLoader;
+import org.springframework.core.io.support.ResourcePatternUtils;
 
 import java.io.IOException;
+import java.io.InputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -24,39 +31,72 @@ import java.util.List;
 @Configuration
 public class TemperatureControlConfig {
 
+    private static final Logger logger = LoggerFactory.getLogger(TemperatureControlConfig.class);
+
     @Value("${temperature-control.config-file:classpath:site-config.json}")
-    private Resource configFile;
+    private String configLocation;
 
     private final ObjectMapper objectMapper = new ObjectMapper();
+    private final ResourceLoader resourceLoader;
+
+    public TemperatureControlConfig(ResourceLoader resourceLoader) {
+        this.resourceLoader = resourceLoader;
+    }
 
     /**
      * Carga la configuración del sitio desde el JSON.
      */
     @Bean
     public SiteConfiguration siteConfiguration() throws IOException {
-        JsonNode root = objectMapper.readTree(configFile.getInputStream());
-        
-        double maxPowerWatts = root.get("maxPowerWatts").asDouble();
-        JsonNode roomsNode = root.get("rooms");
+        Resource resource = resolveConfigResource();
 
-        List<RoomConfig> rooms = new ArrayList<>();
-        if (roomsNode.isArray()) {
-            for (JsonNode roomNode : roomsNode) {
-                rooms.add(new RoomConfig(
-                        roomNode.get("id").asText(),
-                        roomNode.has("name") ? roomNode.get("name").asText() : null,
-                        roomNode.get("sensorTopic").asText(),
-                        roomNode.get("switchUrl").asText(),
-                        roomNode.get("desiredTemperature").asDouble(),
-                        roomNode.has("temperatureTolerance") 
-                                ? roomNode.get("temperatureTolerance").asDouble() 
-                                : 1.0,
-                        roomNode.get("powerConsumptionWatts").asDouble()
-                ));
+        try (InputStream inputStream = resource.getInputStream()) {
+            JsonNode root = objectMapper.readTree(inputStream);
+
+            double maxPowerWatts = root.get("maxPowerWatts").asDouble();
+            JsonNode roomsNode = root.get("rooms");
+
+            List<RoomConfig> rooms = new ArrayList<>();
+            if (roomsNode.isArray()) {
+                for (JsonNode roomNode : roomsNode) {
+                    rooms.add(new RoomConfig(
+                            roomNode.get("id").asText(),
+                            roomNode.has("name") ? roomNode.get("name").asText() : null,
+                            roomNode.get("sensorTopic").asText(),
+                            roomNode.get("switchUrl").asText(),
+                            roomNode.get("desiredTemperature").asDouble(),
+                            roomNode.has("temperatureTolerance")
+                                    ? roomNode.get("temperatureTolerance").asDouble()
+                                    : 1.0,
+                            roomNode.get("powerConsumptionWatts").asDouble()
+                    ));
+                }
+            }
+
+            return new SiteConfiguration(root.get("siteName").asText(), maxPowerWatts, rooms);
+        }
+    }
+
+    private Resource resolveConfigResource() throws IOException {
+        Resource resource = resourceLoader.getResource(configLocation);
+        if (resource.exists()) {
+            return resource;
+        }
+
+        // Si no tiene prefijo, interpretarlo como ruta absoluta o relativa en el filesystem
+        if (!configLocation.startsWith("classpath:") && !configLocation.startsWith("file:")) {
+            Path path = Path.of(configLocation).toAbsolutePath();
+            if (Files.exists(path)) {
+                return resourceLoader.getResource("file:" + path);
             }
         }
 
-        return new SiteConfiguration(root.get("siteName").asText(), maxPowerWatts, rooms);
+        logger.warn("No se encontró el archivo de configuración en '{}'. Usando fallback del classpath.", configLocation);
+        Resource fallback = resourceLoader.getResource("classpath:site-config.json");
+        if (!fallback.exists()) {
+            throw new IOException("No se encontró la configuración del sitio ni en " + configLocation + " ni en classpath:site-config.json");
+        }
+        return fallback;
     }
 
     /**

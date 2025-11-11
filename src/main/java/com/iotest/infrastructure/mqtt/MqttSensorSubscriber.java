@@ -16,6 +16,7 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * Cliente MQTT que se suscribe a los tópicos de sensores y procesa los mensajes.
@@ -31,6 +32,9 @@ public class MqttSensorSubscriber implements MqttCallback {
     private final String clientId;
     private final boolean autoReconnect;
     private MqttClient mqttClient;
+    private MqttConnectOptions connectOptions;
+    private final Object clientLock = new Object();
+    private final AtomicBoolean reconnecting = new AtomicBoolean(false);
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     public MqttSensorSubscriber(
@@ -49,20 +53,8 @@ public class MqttSensorSubscriber implements MqttCallback {
     @PostConstruct
     public void init() {
         try {
-            String uniqueClientId = clientId + "-" + System.currentTimeMillis();
-            mqttClient = new MqttClient(brokerUrl, uniqueClientId, new MemoryPersistence());
-            
-            MqttConnectOptions options = new MqttConnectOptions();
-            options.setAutomaticReconnect(autoReconnect);
-            options.setCleanSession(true);
-            options.setConnectionTimeout(30);
-            options.setKeepAliveInterval(60);
-
-            mqttClient.setCallback(this);
-            mqttClient.connect(options);
-
-            subscribeToTopics();
-            
+            connectOptions = buildConnectOptions();
+            connectClient(true);
             logger.info("Cliente MQTT conectado al broker: {}", brokerUrl);
         } catch (MqttException e) {
             logger.warn("No se pudo conectar con el broker MQTT (puede ser normal en tests): {}", e.getMessage());
@@ -75,13 +67,51 @@ public class MqttSensorSubscriber implements MqttCallback {
 
     @PreDestroy
     public void destroy() {
-        if (mqttClient != null && mqttClient.isConnected()) {
-            try {
-                mqttClient.disconnect();
-                mqttClient.close();
-                logger.info("Cliente MQTT desconectado");
-            } catch (MqttException e) {
-                logger.error("Error al desconectar cliente MQTT: {}", e.getMessage(), e);
+        synchronized (clientLock) {
+            reconnecting.set(false);
+            if (mqttClient != null && mqttClient.isConnected()) {
+                try {
+                    mqttClient.disconnect();
+                    mqttClient.close();
+                    logger.info("Cliente MQTT desconectado");
+                } catch (MqttException e) {
+                    logger.error("Error al desconectar cliente MQTT: {}", e.getMessage(), e);
+                }
+            }
+        }
+    }
+
+    private MqttConnectOptions buildConnectOptions() {
+        MqttConnectOptions options = new MqttConnectOptions();
+        options.setAutomaticReconnect(autoReconnect);
+        options.setCleanSession(true);
+        options.setConnectionTimeout(30);
+        options.setKeepAliveInterval(60);
+        return options;
+    }
+
+    private void connectClient(boolean forceNewClient) throws MqttException {
+        synchronized (clientLock) {
+            if (forceNewClient || mqttClient == null) {
+                if (mqttClient != null) {
+                    try {
+                        mqttClient.close();
+                    } catch (MqttException ignored) {
+                        // Ignorar errores al cerrar un cliente previo
+                    }
+                }
+                String uniqueClientId = clientId + "-" + System.currentTimeMillis();
+                mqttClient = new MqttClient(brokerUrl, uniqueClientId, new MemoryPersistence());
+                mqttClient.setCallback(this);
+            }
+
+            if (connectOptions == null) {
+                connectOptions = buildConnectOptions();
+            }
+
+            if (!mqttClient.isConnected()) {
+                mqttClient.connect(connectOptions);
+                subscribeToTopics();
             }
         }
     }
@@ -108,8 +138,35 @@ public class MqttSensorSubscriber implements MqttCallback {
         
         if (autoReconnect) {
             logger.info("Intentando reconectar...");
-            // La reconexión automática se maneja por el cliente MQTT
+            scheduleReconnect();
         }
+    }
+
+    private void scheduleReconnect() {
+        if (!reconnecting.compareAndSet(false, true)) {
+            return;
+        }
+
+        Thread reconnectionThread = new Thread(() -> {
+            while (reconnecting.get()) {
+                try {
+                    connectClient(true);
+                    logger.info("Reconexión MQTT exitosa al broker: {}", brokerUrl);
+                    reconnecting.set(false);
+                } catch (MqttException e) {
+                    logger.warn("Reintento de conexión MQTT fallido: {}. Nuevo intento en 5s...", e.getMessage());
+                    try {
+                        Thread.sleep(5000);
+                    } catch (InterruptedException interruptedException) {
+                        Thread.currentThread().interrupt();
+                        reconnecting.set(false);
+                    }
+                }
+            }
+        }, "mqtt-reconnector");
+
+        reconnectionThread.setDaemon(true);
+        reconnectionThread.start();
     }
 
     @Override
@@ -222,6 +279,12 @@ public class MqttSensorSubscriber implements MqttCallback {
             // Algunos mensajes usan "temperature" directo dentro de params
             if (paramsNode.has("temperature") && paramsNode.get("temperature").has("tC")) {
                 return paramsNode.get("temperature").get("tC").asDouble();
+            }
+            if (paramsNode.has("temperature")) {
+                JsonNode tempNode = paramsNode.get("temperature");
+                if (tempNode.has("tC")) {
+                    return tempNode.get("tC").asDouble();
+                }
             }
         }
         throw new IllegalArgumentException("No se encontró campo de temperatura en el mensaje");

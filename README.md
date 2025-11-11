@@ -1,93 +1,218 @@
-# 🧊 Sistema de Control de Temperatura
+# Temperature Control System (LabIngSoftware)
 
-## 📝 Guía de Ejecución del Sistema
-
-Este documento describe los pasos necesarios para levantar y ejecutar el **Sistema de Control de Temperatura**, incluyendo el **simulador (Caja Negra)** y el **sistema principal (LabIngSoftware)**.
+Este servicio procesa lecturas de sensores MQTT, evalúa reglas de control térmico y opera los switches HTTP expuestos por la “caja negra” del simulador.
 
 ---
 
-## ⚙️ Prerrequisitos
+## 1. Prerrequisitos
 
-Antes de ejecutar el sistema, asegurate de tener instalados los siguientes componentes:
-
-- 🐳 **Docker** y **Docker Compose**
-- ☕ **Java 17**
-- 🧱 **Maven**
-- 📂 **Repositorios clonados:**
-    - [`cajaNegra/blackBox`](https://github.com/RamosMariano/cajaNegra/tree/main) → *Simulador*
-    - [`LabIngSoftware`](hhttps://github.com/Gastonaso15/LabIngSoftware) → *Sistema de control*
+- Docker y Docker Compose instalados.
+- Repositorios clonados:
+  - `cajaNegra-main/blackBox` (simulador + broker MQTT).
+  - `LabIngSoftware` (este servicio).
 
 ---
 
-## 🚀 Pasos para Ejecutar el Sistema
+## 2. Puesta en marcha
 
-### 🖥️ Terminal 1: Levantar el Simulador (Caja Negra)
+1. **Levantar la caja negra**  
+   ```bash
+   cd path/al/repositorio/cajaNegra-main/blackBox
+   docker compose up --build -d
+   ```
+   Esto inicia:
+   - Broker MQTT (`localhost:1883`)
+   - Simulador con API HTTP en `http://localhost:8080`
 
-```bash
-# Abrir terminal en la carpeta del simulador
-cd /home/usuario/cajaNegra/blackBox
+2. **Levantar LabIngSoftware**  
+   ```bash
+   cd path/al/repositorio/LabIngSoftware/docker
+   docker compose up --build -d
+   ```
+   El servicio queda disponible en `http://localhost:8081` (interior del contenedor escucha en 8080).  
+   Variables relevantes:
+   - `MQTT_BROKER=tcp://host.docker.internal:1883` (conectado al broker de la caja negra)
+   - `CONFIG_PATH=/app/config/site-config.json` (montado desde `LabIngSoftware/config/site-config.json`)
 
-# Construir la imagen del simulador (sin cache)
-docker compose build --no-cache simulator
+3. **Verificar logs**
+   ```bash
+   docker compose logs -f           # dentro de LabIngSoftware/docker
+   tail -f ../logs/temperature-control.log
+   ```
+   Deberías ver mensajes del tipo “Mensaje procesado exitosamente…”.
 
-# Levantar los servicios (broker MQTT + simulador)
-docker compose up -d
-```
+4. **Detener servicios**
+   ```bash
+   # LabIngSoftware
+   docker compose down
 
-Esto inicia:
-- Broker MQTT en localhost:1883
-- Simulador de switches HTTP en http://localhost:8080
+   # Caja negra
+   cd ../../cajaNegra-main/blackBox
+   docker compose down
+   ```
 
-### 💻 Terminal 2: Levantar LabIngSoftware
+---
 
-```bash
-# Abrir nueva terminal en el proyecto LabIngSoftware
-cd /home/usuario/LabIngSoftware
+## 3. API REST
 
-# Compilar el proyecto (saltando tests)
-mvn clean package -DskipTests
+Base URL (por defecto): `http://localhost:8081/api`
 
-# Ejecutar la aplicación
-mvn spring-boot:run
-```
-Esto inicia:
+### 3.1 POST `/sensor/reading`
+- **Descripción**: Recibe una lectura de sensor (usado tanto por MQTT como para pruebas manuales).
+- **curl**:
+  ```bash
+  curl -X POST http://localhost:8081/api/sensor/reading \
+       -H "Content-Type: application/json" \
+       -d '{"sensor_id":"sim/ht/1","temperature":18.5,"time_stamp":"2025-11-11T03:40:00"}'
+  ```
+- **Request**:
+  ```json
+  {
+    "sensor_id": "sim/ht/1",
+    "temperature": 18.5,
+    "time_stamp": "2025-11-11T03:40:00"
+  }
+  ```
+- **Response**:
+  ```json
+  {
+    "sensor_id": "sim/ht/1",
+    "operations_count": 1,
+    "operations": [
+      {
+        "switch_url": "http://localhost:8080/switch/1",
+        "action": "ON",
+        "success": true,
+        "message": "Operación ejecutada exitosamente..."
+      }
+    ],
+    "current_energy_consumption": 1.5
+  }
+  ```
 
-- API REST en http://localhost:8081
-- Cliente MQTT conectado al broker
-- Sistema de control de temperatura operativo
+### 3.2 GET `/system/status`
+- **Descripción**: Estado global (energía máxima, consumo actual, habitaciones).
+- **curl**:
+  ```bash
+  curl http://localhost:8081/api/system/status | jq
+  ```
+- **Response**:
+  ```json
+  {
+    "max_energy": 14.0,
+    "current_energy_consumption": 3.0,
+    "available_energy": 11.0,
+    "rooms": [
+      {
+        "room_id": "1",
+        "sensor_id": "sim/ht/1",
+        "name": "office1",
+        "current_temperature": 19.1,
+        "desired_temperature": 22.0,
+        "temperature_tolerance": 0.5,
+        "is_heating_on": true,
+        "last_update": "2025-11-11T03:40:00",
+        "needs_heating": true
+      }
+    ]
+  }
+  ```
 
-### 🧩 Terminal 3: Verificar el Sistema
+### 3.3 GET `/rooms`
+- **Descripción**: Lista el estado de todas las habitaciones.
+- **curl**:
+  ```bash
+  curl http://localhost:8081/api/rooms | jq
+  ```
 
-```bash
-# Health check - Verificar que el sistema está funcionando
-curl http://localhost:8081/api/health
+### 3.4 GET `/rooms/{roomId}`
+- **Descripción**: Estado de una habitación específica (`roomId` acepta `sensor_id` o `id` definido en configuración).
+- **curl**:
+  ```bash
+  curl http://localhost:8081/api/rooms/1 | jq
+  ```
+- **Errores**: `404` si no existe.
 
-# Ver estado completo del sistema
-curl http://localhost:8081/api/system/status | jq
+### 3.5 POST `/system/energy-cost-check`
+- **Descripción**: Aplica política de apagado cuando la tarifa es alta.
+- **curl**:
+  ```bash
+  curl -X POST http://localhost:8081/api/system/energy-cost-check \
+       -H "Content-Type: application/json" \
+       -d '{"contract":"testContract"}'
+  ```
+- **Request opcional**:
+  ```json
+  { "contract": "testContract" }
+  ```
+- **Response**:
+  ```json
+  {
+    "sensor_id": "SYSTEM",
+    "operations_count": 2,
+    "operations": [
+      { "switch_url": ".../switch/1", "action": "OFF", "success": true, "message": "..." },
+      { "switch_url": ".../switch/2", "action": "OFF", "success": true, "message": "..." }
+    ],
+    "current_energy_consumption": 0.0
+  }
+  ```
 
-# Ver estado de todas las habitaciones
-curl http://localhost:8081/api/rooms | jq
+### 3.6 GET `/health`
+- **Descripción**: Health check simple.
+- **curl**:
+  ```bash
+  curl http://localhost:8081/api/health | jq
+  ```
+- **Response**:
+  ```json
+  {
+    "status": "UP",
+    "message": "Temperature Control System is running"
+  }
+  ```
 
-# Ver estado de una habitación específica
-curl http://localhost:8081/api/rooms/sim/ht/1 | jq
-```
+---
 
-## 📊 Respuestas Esperadas
+## 4. Configuración (`site-config.json`)
 
-### ✅ Health Check
-```bash
-{
-"status": "UP",
-"message": "Temperature Control System is running"
-}
-```
+- Ubicado en `LabIngSoftware/config/site-config.json` (montado dentro del contenedor).
+- Ejemplo alineado con la caja negra:
+  ```json
+  {
+    "siteName": "oficinaA",
+    "maxPowerWatts": 14000,
+    "rooms": [
+      {
+        "id": "1",
+        "name": "office1",
+        "desiredTemperature": 22.0,
+        "temperatureTolerance": 0.5,
+        "powerConsumptionWatts": 1800,
+        "sensorTopic": "sim/ht/1",
+        "switchUrl": "http://host.docker.internal:8080/switch/1"
+      },
+      ...
+    ]
+  }
+  ```
+- Cambiar este archivo y reiniciar el contenedor si se agregan habitaciones o se modifican topologías.
 
-### 🏠 Estado del Sistema
-```bash
-{
-"max_energy": 14.0,
-"current_energy_consumption": 0.0,
-"available_energy": 14.0,
-"rooms": [...]
-}
-```
+---
+
+## 5. Monitoreo rápido
+
+- `docker compose logs -f` (ver conexiones MQTT).
+- `tail -f logs/temperature-control.log` (operaciones, errores de switches).
+- `curl http://localhost:8081/api/system/status | jq` (estado actual).
+- `docker logs -f simulator | grep "/switch"` en la caja negra para confirmar que recibe los comandos HTTP.
+
+---
+
+## 6. Troubleshooting
+
+- **No se conecta a MQTT**: asegurarse de que el broker de la caja negra está en `localhost:1883` antes de levantar LabIngSoftware. Revisar que la variable `MQTT_BROKER` apunte a `tcp://host.docker.internal:1883`.
+- **Conflicto de puertos**: la caja negra usa `localhost:8080`; LabIngSoftware expone `localhost:8081`. Cambiar el mapeo en `docker/docker-compose.yml` si se requiere otro puerto.
+- **Switches no responden**: revisar que `switchUrl` use `host.docker.internal:8080` (dentro del contenedor) y que la caja negra esté corriendo.
+- **Después del restart del broker no vuelve a suscribirse**: el cliente tiene reconexión automática, pero chequear `logs/temperature-control.log` para ver si hubo errores al reactivar.
+

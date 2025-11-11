@@ -1,32 +1,17 @@
-version: '3.8'
 
 services:
-  mosquitto:
-    image: eclipse-mosquitto:2.0
-    container_name: mqtt-broker
-    ports:
-      - "1884:1883"
-    networks:
-      - iotest-network
-
   labingsoftware:
     build:
       context: ..
       dockerfile: docker/Dockerfile
     container_name: labingsoftware
-    depends_on:
-      - mosquitto
     environment:
-      - MQTT_BROKER=tcp://mosquitto:1883
+      - MQTT_BROKER=tcp://host.docker.internal:1883
       - CONFIG_PATH=/app/config/site-config.json
     volumes:
       - ../config:/app/config:ro
       - ../logs:/app/logs
     ports:
-      - "8080:8080"
-    networks:
-      - iotest-network
-
-networks:
-  iotest-network:
-    driver: bridge
+      - "8081:8080"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"

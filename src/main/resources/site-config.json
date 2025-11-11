@@ -10,7 +10,7 @@
       "powerConsumptionWatts": 1800,
       "priority": 1,
       "sensorTopic": "sim/ht/1",
-      "switchUrl": "http://localhost:8080/switch/1"
+      "switchUrl": "http://host.docker.internal:8080/switch/1"
     },
     {
       "id": "2",
@@ -20,7 +20,7 @@
       "powerConsumptionWatts": 1500,
       "priority": 1,
       "sensorTopic": "sim/ht/2",
-      "switchUrl": "http://localhost:8080/switch/2"
+      "switchUrl": "http://host.docker.internal:8080/switch/2"
     },
     {
       "id": "3",
@@ -30,7 +30,7 @@
       "powerConsumptionWatts": 1500,
       "priority": 1,
       "sensorTopic": "sim/ht/3",
-      "switchUrl": "http://localhost:8080/switch/3"
+      "switchUrl": "http://host.docker.internal:8080/switch/3"
     }
   ]
 }

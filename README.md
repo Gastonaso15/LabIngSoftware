@@ -17,7 +17,7 @@ Este servicio procesa lecturas de sensores MQTT, evalúa reglas de control térm
 
 1. **Levantar la caja negra**  
    ```bash
-   cd /home/gaston/IdeaProjects/lab\ ing\ soft\ con\ caja\ negra/cajaNegra-main/blackBox
+   cd path/al/repositorio/cajaNegra-main/blackBox
    docker compose up --build -d
    ```
    Esto inicia:
@@ -26,7 +26,7 @@ Este servicio procesa lecturas de sensores MQTT, evalúa reglas de control térm
 
 2. **Levantar LabIngSoftware**  
    ```bash
-   cd /home/gaston/IdeaProjects/lab\ ing\ soft\ con\ caja\ negra/LabIngSoftware/docker
+   cd path/al/repositorio/LabIngSoftware/docker
    docker compose up --build -d
    ```
    El servicio queda disponible en `http://localhost:8081` (interior del contenedor escucha en 8080).  

@@ -59,6 +59,12 @@ Base URL (por defecto): `http://localhost:8081/api`
 
 ### 3.1 POST `/sensor/reading`
 - **Descripción**: Recibe una lectura de sensor (usado tanto por MQTT como para pruebas manuales).
+- **curl**:
+  ```bash
+  curl -X POST http://localhost:8081/api/sensor/reading \
+       -H "Content-Type: application/json" \
+       -d '{"sensor_id":"sim/ht/1","temperature":18.5,"time_stamp":"2025-11-11T03:40:00"}'
+  ```
 - **Request**:
   ```json
   {
@@ -86,6 +92,10 @@ Base URL (por defecto): `http://localhost:8081/api`
 
 ### 3.2 GET `/system/status`
 - **Descripción**: Estado global (energía máxima, consumo actual, habitaciones).
+- **curl**:
+  ```bash
+  curl http://localhost:8081/api/system/status | jq
+  ```
 - **Response**:
   ```json
   {
@@ -110,13 +120,27 @@ Base URL (por defecto): `http://localhost:8081/api`
 
 ### 3.3 GET `/rooms`
 - **Descripción**: Lista el estado de todas las habitaciones.
+- **curl**:
+  ```bash
+  curl http://localhost:8081/api/rooms | jq
+  ```
 
 ### 3.4 GET `/rooms/{roomId}`
 - **Descripción**: Estado de una habitación específica (`roomId` acepta `sensor_id` o `id` definido en configuración).
+- **curl**:
+  ```bash
+  curl http://localhost:8081/api/rooms/1 | jq
+  ```
 - **Errores**: `404` si no existe.
 
 ### 3.5 POST `/system/energy-cost-check`
 - **Descripción**: Aplica política de apagado cuando la tarifa es alta.
+- **curl**:
+  ```bash
+  curl -X POST http://localhost:8081/api/system/energy-cost-check \
+       -H "Content-Type: application/json" \
+       -d '{"contract":"testContract"}'
+  ```
 - **Request opcional**:
   ```json
   { "contract": "testContract" }
@@ -136,6 +160,10 @@ Base URL (por defecto): `http://localhost:8081/api`
 
 ### 3.6 GET `/health`
 - **Descripción**: Health check simple.
+- **curl**:
+  ```bash
+  curl http://localhost:8081/api/health | jq
+  ```
 - **Response**:
   ```json
   {

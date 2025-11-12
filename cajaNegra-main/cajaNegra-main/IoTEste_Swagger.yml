@@ -1,0 +1,255 @@
+openapi: 3.0.3
+info:
+  title: Sensores IoT Este
+  description: >
+    API HTTP para obtener la configuración del sitio y controlar los switches de calefacción.
+  version: 1.1.0
+servers:
+  - url: http://localhost:8080
+    description: Servidor Local
+
+paths:
+  /site-config:
+    get:
+      summary: Obtener configuración del sitio
+      description: |
+        Devuelve los parámetros del sitio y las rutas a los switches y sensores.
+
+        **Ejemplo curl:**
+        ```bash
+        curl -X GET http://localhost:8080/site-config
+        ```
+      responses:
+        '200':
+          description: Configuración del sitio obtenida correctamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SiteConfig'
+        '405':
+          description: Método no permitido
+
+  /switch/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        description: "Identificador numérico del switch (por ejemplo: 1, 2, 3, etc.)"
+        schema:
+          type: integer
+
+    get:
+      summary: Obtener estado del switch
+      description: |
+        Devuelve el estado actual del switch, incluyendo potencia, energía y temperatura.
+
+        **Ejemplo curl:**
+        ```bash
+        curl -X GET http://localhost:8080/switch/1
+        ```
+      responses:
+        '200':
+          description: Estado del switch obtenido correctamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SwitchState'
+        '404':
+          description: Switch no encontrado
+
+    post:
+      summary: Cambiar el estado del switch
+      description: |
+        Permite encender o apagar el switch enviando JSON con el campo `state`.
+
+        **Ejemplos curl:**
+        ```bash
+        # Encender el switch
+        curl -X POST http://localhost:8080/switch/1 \
+          -H "Content-Type: application/json" \
+          -d '{"state": true}'
+
+        # Apagar el switch
+        curl -X POST http://localhost:8080/switch/1 \
+          -H "Content-Type: application/json" \
+          -d '{"state": false}'
+        ```
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                state:
+                  type: boolean
+                  description: Estado deseado del switch (true = encendido, false = apagado)
+                  example: true
+      responses:
+        '200':
+          description: Comando ejecutado correctamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SwitchCommandResponse'
+        '400':
+          description: Petición inválida
+        '405':
+          description: Método no permitido
+
+components:
+  schemas:
+    SiteConfig:
+      type: object
+      properties:
+        site:
+          type: string
+          example: oficina001
+        maxEnergy:
+          type: string
+          example: 14 kWh
+        rooms:
+          type: array
+          items:
+            type: object
+            properties:
+              name:
+                type: string
+                example: office1
+              expectedTemp:
+                type: string
+                example: "22"
+              energy:
+                type: string
+                example: 2 kWh
+              switch:
+                type: string
+                format: uri
+                example: http://host:port/switch/1
+              sensor:
+                type: string
+                example: mqtt:topic1
+      example:
+        site: oficina001
+        maxEnergy: 14 kWh
+        rooms:
+          - name: office1
+            expectedTemp: "22"
+            energy: 2 kWh
+            switch: http://host:port/switch/1
+            sensor: mqtt:topic1
+          - name: office2
+            expectedTemp: "21"
+            energy: 2 kWh
+            switch: http://host:port/switch/2
+            sensor: mqtt:topic2
+
+    SwitchState:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 0
+        source:
+          type: string
+          example: WS_in
+        output:
+          type: boolean
+          example: false
+        apower:
+          type: number
+          format: float
+          example: 0
+        voltage:
+          type: number
+          format: float
+          example: 225.9
+        current:
+          type: number
+          format: float
+          example: 0
+        freq:
+          type: number
+          format: float
+          example: 50
+        aenergy:
+          type: object
+          properties:
+            total:
+              type: number
+              format: float
+              example: 11.679
+            by_minute:
+              type: array
+              items:
+                type: number
+              example: [0, 0, 0]
+            minute_ts:
+              type: integer
+              example: 1654511972
+        ret_aenergy:
+          type: object
+          properties:
+            total:
+              type: number
+              format: float
+              example: 5.817
+            by_minute:
+              type: array
+              items:
+                type: number
+              example: [0, 0, 0]
+            minute_ts:
+              type: integer
+              example: 1654511615
+        temperature:
+          type: object
+          properties:
+            tC:
+              type: number
+              format: float
+              example: 53.3
+            tF:
+              type: number
+              format: float
+              example: 127.9
+      example:
+        id: 0
+        source: WS_in
+        output: false
+        apower: 0
+        voltage: 225.9
+        current: 0
+        freq: 50
+        aenergy:
+          total: 11.679
+          by_minute: [0, 0, 0]
+          minute_ts: 1654511972
+        ret_aenergy:
+          total: 5.817
+          by_minute: [0, 0, 0]
+          minute_ts: 1654511615
+        temperature:
+          tC: 53.3
+          tF: 127.9
+
+    SwitchCommandResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        src:
+          type: string
+          example: shellypro4pm-f008d1d8b8b8
+        params:
+          type: object
+          properties:
+            was_on:
+              type: boolean
+              example: false
+      example:
+        id: 1
+        src: shellypro4pm-f008d1d8b8b8
+        params:
+          was_on: false

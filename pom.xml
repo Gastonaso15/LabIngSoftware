@@ -132,6 +132,8 @@
                     <excludes>
                         <exclude>**/integration/**/*Test.java</exclude>
                     </excludes>
+                    <printSummary>true</printSummary>
+                    <reportFormat>brief</reportFormat>
                 </configuration>
             </plugin>
 

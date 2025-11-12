@@ -35,7 +35,8 @@ import static org.mockito.Mockito.when;
 @TestPropertySource(properties = {
         "mqtt.enabled=true",
         "mqtt.auto-reconnect=true",
-        "temperature-control.config-file=classpath:test-site-config.json"
+        "temperature-control.config-file=classpath:test-site-config.json",
+        "energy-cost-monitor.enabled=false"
 })
 @DisplayName("Tests de Integración MQTT - Casos Borde")
 class MqttIntegrationTest {

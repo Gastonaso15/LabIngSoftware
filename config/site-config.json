@@ -21,16 +21,6 @@
       "priority": 1,
       "sensorTopic": "sim/ht/2",
       "switchUrl": "http://host.docker.internal:8080/switch/2"
-    },
-    {
-      "id": "3",
-      "name": "office3",
-      "desiredTemperature": 21.0,
-      "temperatureTolerance": 0.5,
-      "powerConsumptionWatts": 1500,
-      "priority": 1,
-      "sensorTopic": "sim/ht/3",
-      "switchUrl": "http://host.docker.internal:8080/switch/3"
     }
   ]
 }

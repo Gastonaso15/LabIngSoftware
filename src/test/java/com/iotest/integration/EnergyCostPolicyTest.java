@@ -33,7 +33,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @TestPropertySource(properties = {
         "mqtt.broker=tcp://localhost:1883",
         "mqtt.enabled=false",
-        "temperature-control.config-file=classpath:test-site-config.json"
+        "temperature-control.config-file=classpath:test-site-config.json",
+        "energy-cost-monitor.enabled=false"
 })
 @DisplayName("Tests de Política de Costo de Energía")
 class EnergyCostPolicyTest {
@@ -89,7 +90,10 @@ class EnergyCostPolicyTest {
                 .andExpect(jsonPath("$.current_energy_consumption").value(greaterThan(0.0)));
 
         // PASO 3: Aplicar política de alto costo
-        int currentTariff = EnergyCost.currentEnergyZone(EnergyCost.TEST_CONTRACT_30S).current();
+        // Pasar el tiempo como parámetro (el endpoint lo obtiene internamente, pero aquí verificamos)
+        long testTimestamp = System.currentTimeMillis();
+        EnergyCost.EnergyZone zone = EnergyCost.energyZone(EnergyCost.TEST_CONTRACT_30S, testTimestamp);
+        int currentTariff = zone.current();
 
         mockMvc.perform(post("/api/system/energy-cost-check")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -108,8 +112,10 @@ class EnergyCostPolicyTest {
     @Test
     @DisplayName("COSTO 2: No debe apagar si tarifa es BAJA")
     void testNoTurnOffWhenLowCost() throws Exception {
-        // Esperar a que la tarifa sea BAJA
-        int currentTariff = EnergyCost.currentEnergyZone(EnergyCost.TEST_CONTRACT_30S).current();
+        // Pasar el tiempo como parámetro para verificar la tarifa
+        long testTimestamp = System.currentTimeMillis();
+        EnergyCost.EnergyZone zone = EnergyCost.energyZone(EnergyCost.TEST_CONTRACT_30S, testTimestamp);
+        int currentTariff = zone.current();
 
         if (currentTariff == EnergyCost.LOW) {
             // Encender habitación
@@ -147,7 +153,9 @@ class EnergyCostPolicyTest {
     @DisplayName("COSTO 3: Debe poder reencender después de periodo de alto costo")
     void testReenableAfterHighCostPeriod() throws Exception {
         // Simular ciclo completo
-        int currentTariff = EnergyCost.currentEnergyZone(EnergyCost.TEST_CONTRACT_30S).current();
+        long testTimestamp = System.currentTimeMillis();
+        EnergyCost.EnergyZone zone = EnergyCost.energyZone(EnergyCost.TEST_CONTRACT_30S, testTimestamp);
+        int currentTariff = zone.current();
 
         if (currentTariff == EnergyCost.HIGH) {
             // Durante alto costo - apagar t0d0
@@ -219,7 +227,8 @@ class EnergyCostPolicyTest {
     @Test
     @DisplayName("COSTO 7: Debe retornar información de la zona de energía")
     void testEnergyZoneInformation() throws Exception {
-        EnergyCost.EnergyZone zone = EnergyCost.currentEnergyZone(EnergyCost.TEST_CONTRACT_30S);
+        long testTimestamp = System.currentTimeMillis();
+        EnergyCost.EnergyZone zone = EnergyCost.energyZone(EnergyCost.TEST_CONTRACT_30S, testTimestamp);
 
         // Verificar que tenemos información válida
         org.assertj.core.api.Assertions.assertThat(zone.current()).isIn(EnergyCost.LOW, EnergyCost.HIGH);
@@ -259,7 +268,8 @@ class EnergyCostPolicyTest {
     @Test
     @DisplayName("COSTO 10: Debe registrar tiempo de próximo cambio de tarifa")
     void testNextTariffChangeTime() throws Exception {
-        EnergyCost.EnergyZone zone = EnergyCost.currentEnergyZone(EnergyCost.TEST_CONTRACT_30S);
+        long testTimestamp = System.currentTimeMillis();
+        EnergyCost.EnergyZone zone = EnergyCost.energyZone(EnergyCost.TEST_CONTRACT_30S, testTimestamp);
         long now = System.currentTimeMillis();
 
         // El próximo cambio debe estar en el futuro

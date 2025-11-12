@@ -35,7 +35,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @TestPropertySource(properties = {
         "mqtt.broker=tcp://localhost:1883",
         "mqtt.enabled=false",
-        "temperature-control.config-file=classpath:test-site-config.json"
+        "temperature-control.config-file=classpath:test-site-config.json",
+        "energy-cost-monitor.enabled=false"
 })
 @DisplayName("Tests de Estrés y Performance")
 class StressAndPerformanceTest {

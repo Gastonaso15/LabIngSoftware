@@ -139,9 +139,13 @@ public class TemperatureControlService {
 
     /**
      * Verifica y aplica la política de apagado por alto costo de energía.
+     * IMPORTANTE: Recibe el tiempo como parámetro, NO lo consulta internamente.
+     * 
+     * @param contract Contrato de energía
+     * @param timestamp Timestamp actual (en milisegundos desde epoch)
      */
-    public ProcessOperationsResponse checkAndApplyHighCostPolicy(String contract) {
-        List<Operation> operations = temperatureController.turnSwitchOffWhenHighCost(contract);
+    public ProcessOperationsResponse checkAndApplyHighCostPolicy(String contract, long timestamp) {
+        List<Operation> operations = temperatureController.turnSwitchOffWhenHighCost(contract, timestamp);
         List<SwitchOperationResponse> executedOperations = executeOperations(operations);
 
         double currentConsumption = calculateCurrentConsumption();

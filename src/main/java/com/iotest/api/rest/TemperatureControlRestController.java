@@ -116,6 +116,9 @@ public class TemperatureControlRestController {
      * }
      * 
      * Si no se envía contract, usa el contrato de prueba por defecto.
+     * 
+     * IMPORTANTE: El tiempo se obtiene aquí (capa de infraestructura) y se pasa como parámetro
+     * al dominio. El controller NO consulta el tiempo directamente.
      */
     @PostMapping("/system/energy-cost-check")
     public ResponseEntity<ProcessOperationsResponse> checkEnergyCost(
@@ -124,7 +127,9 @@ public class TemperatureControlRestController {
                 ? request.getContract() 
                 : EnergyCost.TEST_CONTRACT_30S;
         
-        ProcessOperationsResponse response = temperatureControlService.checkAndApplyHighCostPolicy(contract);
+        // Obtener el tiempo aquí (capa de infraestructura) y pasarlo como parámetro
+        long currentTimestamp = System.currentTimeMillis();
+        ProcessOperationsResponse response = temperatureControlService.checkAndApplyHighCostPolicy(contract, currentTimestamp);
         return ResponseEntity.ok(response);
     }
 

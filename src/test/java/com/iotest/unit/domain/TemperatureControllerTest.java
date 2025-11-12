@@ -67,9 +67,11 @@ class TemperatureControllerTest {
                 switch1.setOn(true);
                 switch2.setOn(true);
 
-                // Act
-                int currentTariff = EnergyCost.currentEnergyZone(EnergyCost.TEST_CONTRACT_30S).current();
-                List<Operation> operations = controller.turnSwitchOffWhenHighCost(EnergyCost.TEST_CONTRACT_30S);
+                // Act: pasar el tiempo como parámetro (NO consultar dentro del test)
+                long testTimestamp = System.currentTimeMillis();
+                EnergyCost.EnergyZone zone = EnergyCost.energyZone(EnergyCost.TEST_CONTRACT_30S, testTimestamp);
+                int currentTariff = zone.current();
+                List<Operation> operations = controller.turnSwitchOffWhenHighCost(EnergyCost.TEST_CONTRACT_30S, testTimestamp);
 
                 // Assert según la tarifa actual
                 if (currentTariff == EnergyCost.HIGH){

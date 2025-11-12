@@ -16,11 +16,22 @@ temperature-control:
   config-file: ${CONFIG_PATH:classpath:site-config.json}
   sensor-timeout-seconds: 300
   monitoring-interval-seconds: 30
+  energy-contract: ${ENERGY_CONTRACT:testContract}  # Contrato de energía (testContract cambia cada 30s)
 
+# Energy Cost Monitor Configuration
+energy-cost-monitor:
+  enabled: true  # Habilitar monitor automático de cambios de tarifa (deshabilitar en tests)
+  check-interval-seconds: 5  # Intervalo en segundos para verificar cambios de tarifa
+
+
+# Terminal Status Monitor Configuration
+terminal-monitor:
+  enabled: true  # Monitor de estado en terminal habilitado por defecto
 # Logging
 logging:
   level:
     root: INFO
     com.iotest: DEBUG
+    com.iotest.infrastructure.mqtt: INFO  # Logging más visible para MQTT
   file:
     name: logs/temperature-control.log

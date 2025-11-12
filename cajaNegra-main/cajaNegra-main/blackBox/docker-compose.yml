@@ -1,0 +1,49 @@
+name: blackbox-simulator-stack
+
+services:
+  broker-mqtt:
+    image: eclipse-mosquitto:2
+    container_name: broker-mqtt
+    restart: unless-stopped
+    ports:
+      - "1883:1883"
+    volumes:
+      - ./mosquitto/config:/mosquitto/config:ro
+      - ./mosquitto/data:/mosquitto/data
+      - ./mosquitto/log:/mosquitto/log
+    healthcheck:
+      test: ["CMD-SHELL", "mosquitto_sub -h localhost -t '$$SYS/#' -C 1 -W 5 || exit 1"]
+      interval: 10s
+      timeout: 6s
+      retries: 6
+
+  simulator:
+    build: .
+    container_name: simulator
+    depends_on:
+      broker-mqtt:
+        condition: service_healthy
+    environment:
+      SIMULATION_CONFIG: /config/simulation_config.json
+      LOG_DIR: /logs
+      LOG_LEVEL_ROOT: INFO
+      APP_NAME: simulator
+
+      # tus vars MQTT (MqttEnv)
+      MQTT_URL: tcp://broker-mqtt:1883
+      MQTT_CLIENT_ID: "simulator-$${HOSTNAME}"
+      MQTT_USERNAME: ""
+      MQTT_PASSWORD: ""
+      MQTT_QOS: "1"
+      MQTT_RETAIN: "false"
+      MQTT_BASE_TOPIC: sim
+      MQTT_KEEPALIVE: "30"
+      MQTT_CONN_TIMEOUT: "10"
+
+    volumes:
+      - ./config/simulation_config.json:/config/simulation_config.json:ro
+      - ./logs:/logs
+    ports:
+      - "8080:8080"
+    restart: unless-stopped
+

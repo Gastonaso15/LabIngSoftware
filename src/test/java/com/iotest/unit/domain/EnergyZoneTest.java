@@ -13,9 +13,9 @@ public class EnergyZoneTest {
     @Test
     @DisplayName("Condiciones basicas de EnergyCost")
     void testEnergyCostBasicConditions(){
-        long now =  System.currentTimeMillis();
-
-        EnergyCost.EnergyZone eCost = EnergyCost.currentEnergyZone(EnergyCost.TEST_CONTRACT_30S);
+        // Pasar el tiempo como parámetro (NO usar currentEnergyZone que consulta internamente)
+        long now = System.currentTimeMillis();
+        EnergyCost.EnergyZone eCost = EnergyCost.energyZone(EnergyCost.TEST_CONTRACT_30S, now);
 
         assertThat(eCost.current()).isIn(HIGH, LOW);
         assertThat(eCost.current()).isNotEqualTo(eCost.next());

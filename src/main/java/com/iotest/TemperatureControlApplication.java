@@ -2,6 +2,7 @@ package com.iotest;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.scheduling.annotation.EnableScheduling;
 
 /**
  * Aplicación principal del sistema de control de temperatura.
@@ -11,6 +12,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
  * en lecturas de sensores MQTT y límites de consumo energético.
  */
 @SpringBootApplication
+@EnableScheduling
 public class TemperatureControlApplication {
 
     public static void main(String[] args) {

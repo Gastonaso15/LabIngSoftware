@@ -5,6 +5,7 @@ import com.iotest.domain.model.POJOS.DataSwitch;
 import com.iotest.domain.model.Operation;
 import com.iotest.domain.model.POJOS.Room;
 import com.iotest.domain.model.EnergyCost;
+import com.iotest.domain.model.TimeEvent;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -172,9 +173,49 @@ public class TemperatureController {
         return maxEnergy;
     }
 
-    public List<Operation> turnSwitchOffWhenHighCost(String contract){
+    /**
+     * Procesa un evento de tiempo (cambio de tarifa de energía).
+     * Este método se llama automáticamente cuando se detecta un cambio en la tarifa.
+     * 
+     * @param timeEvent Evento de tiempo que contiene información sobre el cambio de tarifa
+     * @return Lista de operaciones a realizar (apagar switches si la tarifa es HIGH)
+     */
+    public List<Operation> processTimeEvent(TimeEvent timeEvent) {
         List<Operation> operations = new ArrayList<>();
-        EnergyCost.EnergyZone zone = EnergyCost.currentEnergyZone(contract);
+        
+        // Si la tarifa cambió a HIGH, apagar todos los switches
+        if (timeEvent.isChangeToHigh()) {
+            for (Room room : allRooms) {
+                DataSwitch sw = findSwitchByUrl(room.getSwitchUrl()).orElse(null);
+                if (sw != null && sw.isOn()) {
+                    operations.add(new Operation(sw.getSwitchUrl(), "OFF"));
+                    sw.setOn(false);
+                }
+            }
+        }
+        // Si la tarifa cambió a LOW, no hacemos nada automáticamente
+        // Las habitaciones se encenderán cuando lleguen eventos de temperatura
+        
+        return operations;
+    }
+
+    /**
+     * Método legacy para verificar y aplicar política de alto costo.
+     * Ahora se recomienda usar processTimeEvent() que se llama automáticamente.
+     * 
+     * IMPORTANTE: Este método recibe el tiempo como parámetro, NO lo consulta internamente.
+     * Esto cumple con el principio de que el controller no debe consultar el tiempo.
+     * 
+     * @param contract Contrato de energía
+     * @param timestamp Timestamp actual (en milisegundos desde epoch)
+     * @return Lista de operaciones a realizar
+     * @deprecated Usar processTimeEvent() en su lugar
+     */
+    @Deprecated
+    public List<Operation> turnSwitchOffWhenHighCost(String contract, long timestamp){
+        List<Operation> operations = new ArrayList<>();
+        // Usar energyZone() pasando el tiempo como parámetro (NO currentEnergyZone())
+        EnergyCost.EnergyZone zone = EnergyCost.energyZone(contract, timestamp);
         if (zone.current() == EnergyCost.HIGH){
             for (Room room : allRooms){
                 DataSwitch sw = findSwitchByUrl(room.getSwitchUrl()).orElse(null);

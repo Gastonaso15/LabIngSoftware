@@ -57,17 +57,85 @@ echo -e "${YELLOW}⏳ Esperando 5 segundos para que el broker MQTT esté listo..
 sleep 5
 echo ""
 
-# Paso 2: Compilar labingsoftware
-echo -e "${YELLOW}🔨 Paso 2: Compilando labingsoftware...${NC}"
+# Paso 2: Detener contenedores existentes de labingsoftware (si están corriendo)
+echo -e "${YELLOW}🛑 Paso 2: Deteniendo contenedores existentes de labingsoftware (si están corriendo)...${NC}"
+DOCKER_DIR="docker"
+
+if [ -d "$DOCKER_DIR" ]; then
+    cd "$DOCKER_DIR"
+    if [ -f "docker-compose.yml" ]; then
+        echo "   Deteniendo contenedores existentes..."
+        docker compose down 2>/dev/null || docker-compose down 2>/dev/null || true
+        
+        # Esperar un momento para que los contenedores se detengan completamente
+        sleep 2
+        
+        # Verificar si el contenedor aún está corriendo y forzar detención
+        if docker ps --filter "name=labingsoftware" --format "{{.Names}}" | grep -q labingsoftware; then
+            echo "   Forzando detención del contenedor..."
+            docker stop labingsoftware 2>/dev/null || true
+            docker rm labingsoftware 2>/dev/null || true
+            sleep 1
+        fi
+        
+        # Eliminar contenedores detenidos también
+        docker rm $(docker ps -aq --filter "name=labingsoftware") 2>/dev/null || true
+        
+        echo -e "${GREEN}✅ Contenedores detenidos${NC}"
+    fi
+    cd - >/dev/null
+fi
+
+# Verificar si hay problemas de permisos en target
+TARGET_HAS_PERMISSION_ISSUES=false
+if [ -d "target" ]; then
+    echo "   Verificando permisos del directorio target..."
+    # Intentar cambiar permisos primero
+    if ! chmod -R u+w target/ 2>/dev/null; then
+        TARGET_HAS_PERMISSION_ISSUES=true
+    fi
+    # Intentar eliminar un archivo de prueba
+    if [ -f "target/test.txt" ]; then
+        if ! rm -f target/test.txt 2>/dev/null; then
+            TARGET_HAS_PERMISSION_ISSUES=true
+        fi
+    fi
+    
+    if [ "$TARGET_HAS_PERMISSION_ISSUES" = true ]; then
+        echo -e "${YELLOW}⚠️  Detectado problema de permisos en target/${NC}"
+        echo -e "${YELLOW}   Por favor ejecuta manualmente antes de continuar:${NC}"
+        echo -e "${CYAN}   sudo rm -rf target/${NC}"
+        echo ""
+        echo -e "${RED}❌ No se puede continuar sin limpiar el directorio target/${NC}"
+        exit 1
+    else
+        echo "   Limpiando directorio target..."
+        rm -rf target/ 2>/dev/null || true
+        sleep 1
+    fi
+fi
+echo ""
+
+# Paso 3: Compilar labingsoftware
+echo -e "${YELLOW}🔨 Paso 3: Compilando labingsoftware...${NC}"
+
 if command_exists mvn; then
-    mvn clean package -DskipTests >/dev/null 2>&1
-    echo -e "${GREEN}✅ Compilación completada${NC}"
+    if mvn clean package -DskipTests; then
+        echo -e "${GREEN}✅ Compilación completada${NC}"
+    else
+        echo -e "${RED}❌ Error en la compilación. Revisa los mensajes de error arriba.${NC}"
+        exit 1
+    fi
 else
     echo -e "${YELLOW}⚠️  Maven no encontrado, usando Maven Wrapper...${NC}"
     if [ -f "./mvnw" ]; then
         chmod +x ./mvnw
-        ./mvnw clean package -DskipTests >/dev/null 2>&1
-        echo -e "${GREEN}✅ Compilación completada${NC}"
+        if ./mvnw clean package -DskipTests; then
+            echo -e "${GREEN}✅ Compilación completada${NC}"
+        else
+            echo -e "${RED}❌ Error en la compilación. Revisa los mensajes de error arriba.${NC}"
+            exit 1
+        fi
     else
         echo -e "${RED}❌ No se encontró Maven ni Maven Wrapper${NC}"
         exit 1
@@ -75,8 +143,8 @@ else
 fi
 echo ""
 
-# Paso 3: Iniciar labingsoftware con docker-compose
-echo -e "${YELLOW}🐳 Paso 3: Iniciando labingsoftware con docker-compose...${NC}"
+# Paso 4: Iniciar labingsoftware con docker-compose
+echo -e "${YELLOW}🐳 Paso 4: Iniciando labingsoftware con docker-compose...${NC}"
 cd docker
 echo "   Ejecutando: docker compose up -d --build"
 docker compose up -d --build
@@ -102,29 +170,29 @@ MAX_RETRIES=5
 RETRY_COUNT=0
 
 while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
-    if curl -s http://localhost:8081/api/health >/dev/null 2>&1; then
+    if curl -s http://localhost:18081/api/health >/dev/null 2>&1; then
         echo -e "${GREEN}✅ Sistema está funcionando correctamente!${NC}"
         echo ""
         
         # Mostrar información del sistema
         echo -e "${CYAN}📋 Información del Sistema:${NC}"
-        echo -e "${CYAN}   API REST: http://localhost:8081/api${NC}"
-        echo -e "${CYAN}   Health: http://localhost:8081/api/health${NC}"
-        echo -e "${CYAN}   Estado: http://localhost:8081/api/system/status${NC}"
+        echo -e "${CYAN}   API REST: http://localhost:18081/api${NC}"
+        echo -e "${CYAN}   Health: http://localhost:18081/api/health${NC}"
+        echo -e "${CYAN}   Estado: http://localhost:18081/api/system/status${NC}"
         echo ""
         
         # Mostrar estado actual
         echo -e "${CYAN}📊 Estado Actual:${NC}"
-        curl -s http://localhost:8081/api/system/status | python3 -m json.tool 2>/dev/null || \
-        curl -s http://localhost:8081/api/system/status | jq 2>/dev/null || \
-        curl -s http://localhost:8081/api/system/status
+        curl -s http://localhost:18081/api/system/status | python3 -m json.tool 2>/dev/null || \
+        curl -s http://localhost:18081/api/system/status | jq 2>/dev/null || \
+        curl -s http://localhost:18081/api/system/status
         echo ""
         
         echo -e "${GREEN}✅ Todo listo!${NC}"
         echo ""
         echo -e "${CYAN}📝 Comandos útiles:${NC}"
         echo -e "${CYAN}   Ver logs: docker compose -f docker/docker-compose.yml logs -f${NC}"
-        echo -e "${CYAN}   Ver estado: curl http://localhost:8081/api/system/status | jq${NC}"
+        echo -e "${CYAN}   Ver estado: curl http://localhost:18081/api/system/status | jq${NC}"
         echo -e "${CYAN}   Detener: docker compose -f docker/docker-compose.yml down${NC}"
         echo ""
         echo -e "${YELLOW}💡 El monitor de terminal está habilitado y mostrará el estado cada 5 segundos en los logs${NC}"
@@ -140,7 +208,7 @@ while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
 done
 
 echo -e "${YELLOW}⚠️  El sistema está iniciando, puede tardar unos segundos más...${NC}"
-echo -e "${CYAN}   Intenta: curl http://localhost:8081/api/health${NC}"
+echo -e "${CYAN}   Intenta: curl http://localhost:18081/api/health${NC}"
 echo ""
 echo -e "${CYAN}📝 Ver logs: docker compose -f docker/docker-compose.yml logs -f labingsoftware${NC}"
 

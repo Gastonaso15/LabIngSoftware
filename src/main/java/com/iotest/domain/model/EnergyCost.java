@@ -22,8 +22,9 @@ public class EnergyCost {
 
     /**
      * Duración de la Zona para validar.
+     * Para testContract: 30 segundos (cambia cada 30 segundos entre HIGH y LOW)
      */
-    private final static long ZONE_DURATION = 1000 * 60 * 30;
+    private final static long ZONE_DURATION = 1000 * 30; // 30 segundos en milisegundos
 
     /**
      * Indica el tipo de Tarifa actual. También indica cuando se va a activar una nueva tarifa y cuál va a ser.

@@ -1,5 +1,5 @@
 server:
-  port: 8081
+  port: 18081
 
 spring:
   application:
@@ -7,7 +7,7 @@ spring:
 
 # MQTT Configuration
 mqtt:
-  broker: ${MQTT_BROKER:tcp://localhost:1883}
+  broker: ${MQTT_BROKER:tcp://localhost:11883}
   client-id: temp-controller-${random.uuid}
   auto-reconnect: true
 

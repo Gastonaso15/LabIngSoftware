@@ -38,7 +38,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
     "mqtt.broker=tcp://localhost:1883",
     "mqtt.enabled=false",
     "temperature-control.config-file=classpath:test-site-config.json",
-    "energy-cost-monitor.enabled=false"
+    "energy-cost-monitor.enabled=true",
+    "energy-cost-monitor.check-interval-seconds=1"
 })
 @DisplayName("Tests de Integración - API REST")
 class TemperatureControlIntegrationTest {

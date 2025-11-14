@@ -123,14 +123,21 @@ public class TemperatureControlRestController {
     @PostMapping("/system/energy-cost-check")
     public ResponseEntity<ProcessOperationsResponse> checkEnergyCost(
             @RequestBody(required = false) EnergyCostCheckRequest request) {
-        String contract = request != null && request.getContract() != null 
-                ? request.getContract() 
-                : EnergyCost.TEST_CONTRACT_30S;
-        
-        // Obtener el tiempo aquí (capa de infraestructura) y pasarlo como parámetro
-        long currentTimestamp = System.currentTimeMillis();
-        ProcessOperationsResponse response = temperatureControlService.checkAndApplyHighCostPolicy(contract, currentTimestamp);
-        return ResponseEntity.ok(response);
+        try {
+            String contract = request != null && request.getContract() != null 
+                    ? request.getContract() 
+                    : EnergyCost.TEST_CONTRACT_30S;
+            
+            // Obtener el tiempo aquí (capa de infraestructura) y pasarlo como parámetro
+            long currentTimestamp = System.currentTimeMillis();
+            ProcessOperationsResponse response = temperatureControlService.checkAndApplyHighCostPolicy(contract, currentTimestamp);
+            return ResponseEntity.ok(response);
+        } catch (IllegalArgumentException e) {
+            // Contrato inválido - devolver error 5xx
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
     }
 
     /**

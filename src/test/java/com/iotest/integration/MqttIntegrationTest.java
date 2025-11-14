@@ -135,6 +135,9 @@ class MqttIntegrationTest {
     @Test
     @DisplayName("MQTT 3: Debe reconectar automáticamente después de caída")
     void testMqttAutoReconnect() throws Exception {
+        // Verificar que el subscriber está conectado inicialmente
+        assertThat(mqttSubscriber).isNotNull();
+        
         // Publicar mensaje antes de caída
         String message1 = """
             {
@@ -144,21 +147,67 @@ class MqttIntegrationTest {
             }
             """.formatted(LocalDateTime.now());
 
-        testPublisher.publish("mqtt:topic1", new MqttMessage(message1.getBytes()));
+        MqttMessage mqttMessage1 = new MqttMessage(message1.getBytes());
+        mqttMessage1.setQos(1);
+        testPublisher.publish("mqtt:topic1", mqttMessage1);
         Thread.sleep(1000);
 
         // Detener broker
         mosquitto.stop();
         Thread.sleep(2000);
 
+        // Verificar que el broker está detenido
+        assertThat(mosquitto.isRunning()).isFalse();
+
         // Reiniciar broker
         mosquitto.start();
-        Thread.sleep(3000);
+        
+        // Esperar a que el broker esté completamente listo
+        Thread.sleep(5000);
 
-        // Reconectar publisher
-        if (!testPublisher.isConnected()) {
-            testPublisher.connect();
+        // Verificar que el broker está corriendo de nuevo
+        assertThat(mosquitto.isRunning()).isTrue();
+
+        // Obtener el nuevo puerto (puede ser el mismo o diferente después del reinicio)
+        int newPort = mosquitto.getMappedPort(1883);
+        String newBrokerUrl = "tcp://localhost:" + newPort;
+
+        // Siempre reconectar el publisher después del reinicio del broker
+        // porque el cliente puede estar en un estado inconsistente
+        try {
+            if (testPublisher.isConnected()) {
+                testPublisher.disconnect();
+            }
+        } catch (MqttException e) {
+            // Ignorar errores al desconectar
         }
+        
+        try {
+            testPublisher.close();
+        } catch (MqttException e) {
+            // Ignorar errores al cerrar
+        }
+        
+        // Crear un nuevo cliente con el puerto actualizado
+        testPublisher = new MqttClient(newBrokerUrl, "test-publisher-reconnect-" + System.currentTimeMillis(), new MemoryPersistence());
+        
+        // Intentar conectar con retry
+        int maxRetries = 5;
+        for (int i = 0; i < maxRetries; i++) {
+            try {
+                testPublisher.connect();
+                break;
+            } catch (MqttException e) {
+                if (i == maxRetries - 1) {
+                    throw e;
+                }
+                Thread.sleep(1000); // Esperar 1 segundo antes de reintentar
+            }
+        }
+
+        // Esperar a que el subscriber se reconecte automáticamente
+        // El auto-reconnect debería haber funcionado
+        Thread.sleep(5000);
 
         // Publicar mensaje después de reconexión
         String message2 = """
@@ -169,11 +218,14 @@ class MqttIntegrationTest {
             }
             """.formatted(LocalDateTime.now());
 
-        testPublisher.publish("mqtt:topic1", new MqttMessage(message2.getBytes()));
-        Thread.sleep(1000);
+        MqttMessage mqttMessage2 = new MqttMessage(message2.getBytes());
+        mqttMessage2.setQos(1);
+        testPublisher.publish("mqtt:topic1", mqttMessage2);
+        Thread.sleep(2000);
 
         // El sistema debe seguir funcionando
         assertThat(mosquitto.isRunning()).isTrue();
+        assertThat(testPublisher.isConnected()).isTrue();
     }
 
     @Test

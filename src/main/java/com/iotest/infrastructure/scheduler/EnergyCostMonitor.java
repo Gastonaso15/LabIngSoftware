@@ -152,6 +152,26 @@ public class EnergyCostMonitor {
                 lastKnownTariff = currentTariff;
                 logger.debug("Monitor de energía inicializado. Tarifa actual: {}", 
                     currentTariff == EnergyCost.HIGH ? "HIGH" : "LOW");
+                
+                // Si la tarifa inicial es HIGH, apagar todos los switches inmediatamente
+                // (no esperar a que cambie, porque si ya es HIGH al inicio, deben apagarse)
+                if (currentTariff == EnergyCost.HIGH) {
+                    logger.info("Tarifa inicial es HIGH. Apagando todos los switches encendidos...");
+                    // Crear un evento de tiempo simulado: LOW -> HIGH (para que el controller apague)
+                    // Usamos LOW como previousTariff para que isChangeToHigh() retorne true
+                    LocalDateTime eventTimestamp = LocalDateTime.ofInstant(
+                        Instant.ofEpochMilli(currentTime), ZoneId.systemDefault());
+                    
+                    TimeEvent timeEvent = new TimeEvent(
+                        contract,
+                        EnergyCost.LOW, // Simulamos que veníamos de LOW
+                        EnergyCost.HIGH, // Y ahora estamos en HIGH
+                        eventTimestamp,
+                        zone.nextTS()
+                    );
+                    
+                    processTimeEvent(timeEvent);
+                }
                 return;
             }
 

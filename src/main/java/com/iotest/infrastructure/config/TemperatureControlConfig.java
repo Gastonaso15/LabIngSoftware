@@ -14,13 +14,11 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.ResourceLoader;
-import org.springframework.core.io.support.ResourcePatternUtils;
 
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -45,6 +43,7 @@ public class TemperatureControlConfig {
 
     /**
      * Carga la configuración del sitio desde el JSON.
+     * Soporta tanto el nuevo formato como el formato legacy para compatibilidad.
      */
     @Bean
     public SiteConfiguration siteConfiguration() throws IOException {
@@ -53,28 +52,128 @@ public class TemperatureControlConfig {
         try (InputStream inputStream = resource.getInputStream()) {
             JsonNode root = objectMapper.readTree(inputStream);
 
-            double maxPowerWatts = root.get("maxPowerWatts").asDouble();
+            // Leer siteName (nuevo formato: "site", legacy: "siteName")
+            String siteName = root.has("site") 
+                    ? root.get("site").asText() 
+                    : root.get("siteName").asText();
+
+            // Leer maxEnergy/maxPowerWatts (nuevo formato: "maxEnergy" como string "60 kWh", legacy: "maxPowerWatts" como número)
+            double maxPowerWatts;
+            if (root.has("maxEnergy")) {
+                String maxEnergy = root.get("maxEnergy").asText();
+                maxPowerWatts = parseEnergyToWatts(maxEnergy);
+            } else {
+                maxPowerWatts = root.get("maxPowerWatts").asDouble();
+            }
+
             JsonNode roomsNode = root.get("rooms");
 
             List<RoomConfig> rooms = new ArrayList<>();
             if (roomsNode.isArray()) {
                 for (JsonNode roomNode : roomsNode) {
+                    // id: usar "name" como id si "id" no está presente (nuevo formato)
+                    String id = roomNode.has("id") 
+                            ? roomNode.get("id").asText() 
+                            : roomNode.get("name").asText();
+
+                    // name
+                    String name = roomNode.has("name") ? roomNode.get("name").asText() : null;
+
+                    // sensorTopic (nuevo formato: "sensor", legacy: "sensorTopic")
+                    String sensorTopic = roomNode.has("sensor") 
+                            ? roomNode.get("sensor").asText() 
+                            : roomNode.get("sensorTopic").asText();
+
+                    // switchUrl (nuevo formato: "switch", legacy: "switchUrl")
+                    String switchUrl = roomNode.has("switch") 
+                            ? roomNode.get("switch").asText() 
+                            : roomNode.get("switchUrl").asText();
+
+                    // desiredTemperature (nuevo formato: "expectedTemp" como string, legacy: "desiredTemperature" como número)
+                    double desiredTemperature;
+                    if (roomNode.has("expectedTemp")) {
+                        String expectedTemp = roomNode.get("expectedTemp").asText();
+                        desiredTemperature = parseTemperature(expectedTemp);
+                    } else {
+                        desiredTemperature = roomNode.get("desiredTemperature").asDouble();
+                    }
+
+                    // temperatureTolerance (opcional, default 1.0)
+                    double temperatureTolerance = roomNode.has("temperatureTolerance")
+                            ? roomNode.get("temperatureTolerance").asDouble()
+                            : 1.0;
+
+                    // powerConsumptionWatts (nuevo formato: "energy" como string "80 kWh", legacy: "powerConsumptionWatts" como número)
+                    double powerConsumptionWatts;
+                    if (roomNode.has("energy")) {
+                        String energy = roomNode.get("energy").asText();
+                        powerConsumptionWatts = parseEnergyToWatts(energy);
+                    } else {
+                        powerConsumptionWatts = roomNode.get("powerConsumptionWatts").asDouble();
+                    }
+
                     rooms.add(new RoomConfig(
-                            roomNode.get("id").asText(),
-                            roomNode.has("name") ? roomNode.get("name").asText() : null,
-                            roomNode.get("sensorTopic").asText(),
-                            roomNode.get("switchUrl").asText(),
-                            roomNode.get("desiredTemperature").asDouble(),
-                            roomNode.has("temperatureTolerance")
-                                    ? roomNode.get("temperatureTolerance").asDouble()
-                                    : 1.0,
-                            roomNode.get("powerConsumptionWatts").asDouble()
+                            id, name, sensorTopic, switchUrl,
+                            desiredTemperature, temperatureTolerance,
+                            powerConsumptionWatts
                     ));
                 }
             }
 
-            return new SiteConfiguration(root.get("siteName").asText(), maxPowerWatts, rooms);
+            return new SiteConfiguration(siteName, maxPowerWatts, rooms);
         }
+    }
+
+    /**
+     * Parsea un string de energía con unidades (ej: "60 kWh", "80 kWh") a watts.
+     * Soporta formatos: "60 kWh", "60kWh", "60", etc.
+     */
+    private double parseEnergyToWatts(String energy) {
+        if (energy == null || energy.trim().isEmpty()) {
+            throw new IllegalArgumentException("Energy string cannot be null or empty");
+        }
+
+        String trimmed = energy.trim().toLowerCase();
+        
+        // Extraer el número
+        String numberPart = trimmed.replaceAll("[^0-9.]", "").trim();
+        if (numberPart.isEmpty()) {
+            throw new IllegalArgumentException("Invalid energy format: " + energy);
+        }
+
+        double value = Double.parseDouble(numberPart);
+
+        // Determinar la unidad y convertir a watts
+        if (trimmed.contains("kwh") || trimmed.contains("kw")) {
+            // Si tiene "kWh" o "kW", convertir de kWh a watts (multiplicar por 1000)
+            return value * 1000.0;
+        } else if (trimmed.contains("wh") || trimmed.contains("w")) {
+            // Si tiene "Wh" o "W" (sin 'k'), ya está en watts
+            return value;
+        } else {
+            // Si no tiene unidad, asumir que está en kWh (para compatibilidad con formato "60")
+            return value * 1000.0;
+        }
+    }
+
+    /**
+     * Parsea un string de temperatura a double.
+     * Soporta formatos: "22", "22.0", "21.5", etc.
+     */
+    private double parseTemperature(String temp) {
+        if (temp == null || temp.trim().isEmpty()) {
+            throw new IllegalArgumentException("Temperature string cannot be null or empty");
+        }
+
+        String trimmed = temp.trim();
+        
+        // Remover cualquier unidad o carácter no numérico excepto el punto decimal
+        String numberPart = trimmed.replaceAll("[^0-9.]", "").trim();
+        if (numberPart.isEmpty()) {
+            throw new IllegalArgumentException("Invalid temperature format: " + temp);
+        }
+
+        return Double.parseDouble(numberPart);
     }
 
     private Resource resolveConfigResource() throws IOException {

@@ -76,6 +76,8 @@ public class TemperatureControlService {
 
     /**
      * Ejecuta las operaciones sobre los switches físicos.
+     * IMPORTANTE: Actualiza el estado interno del switch SOLO DESPUÉS de que la operación física se ejecute exitosamente.
+     * Esto evita desincronización entre el estado interno y el estado real del switch.
      */
     private List<SwitchOperationResponse> executeOperations(List<Operation> operations) {
         List<SwitchOperationResponse> results = new ArrayList<>();
@@ -85,6 +87,16 @@ public class TemperatureControlService {
                 boolean desiredState = "ON".equals(operation.getAction());
                 String response = switchController.postSwitchStatus(operation.getSwitchUrl(), desiredState);
 
+                // Actualizar el estado interno del switch SOLO DESPUÉS de que la operación física se ejecute exitosamente
+                DataSwitch switchToUpdate = switches.stream()
+                        .filter(s -> s.getSwitchUrl().equals(operation.getSwitchUrl()))
+                        .findFirst()
+                        .orElse(null);
+                
+                if (switchToUpdate != null) {
+                    switchToUpdate.setOn(desiredState);
+                }
+
                 results.add(SwitchOperationResponse.builder()
                         .switchUrl(operation.getSwitchUrl())
                         .action(operation.getAction())
@@ -92,6 +104,8 @@ public class TemperatureControlService {
                         .message("Operación ejecutada exitosamente: " + response)
                         .build());
             } catch (IOException | InterruptedException e) {
+                // Si la operación falla, NO actualizamos el estado interno
+                // El estado interno se mantendrá como estaba, reflejando el estado real del switch
                 results.add(SwitchOperationResponse.builder()
                         .switchUrl(operation.getSwitchUrl())
                         .action(operation.getAction())

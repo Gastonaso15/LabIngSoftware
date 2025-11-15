@@ -33,21 +33,22 @@ public String getSwitchStatus(String SwitchURL) throws IOException, InterruptedE
 
 
 public String postSwitchStatus(String SwitchURL, boolean estadoDeseado) throws IOException, InterruptedException{
-    String estadoSwitch;
-    if (estadoDeseado==true) {
-        estadoSwitch = "{\"state\":true}";        // Esto es lo que le voy a cargar pero no sé bien si es lo que le tengo que mandar o no para prenderlo
-    }else{
-        estadoSwitch = "{\"state\":false}";
-    }
+    // Construir JSON según especificación de la API: {"state": true/false}
+    String estadoSwitch = "{\"state\":" + estadoDeseado + "}";
 
     HttpRequest setReq = HttpRequest.newBuilder(URI.create(SwitchURL))
-            .timeout(Duration.ofSeconds(5)).header("Content-Type", "application/json").POST(HttpRequest.BodyPublishers.ofString(estadoSwitch, StandardCharsets.UTF_8)).build();
+            .timeout(Duration.ofSeconds(5))
+            .header("Content-Type", "application/json")
+            .POST(HttpRequest.BodyPublishers.ofString(estadoSwitch, StandardCharsets.UTF_8))
+            .build();
 
     HttpResponse<String> setResp = http.send(setReq, HttpResponse.BodyHandlers.ofString());
-    if (setResp.statusCode() == 200) {
-        return ("Respuesta: " + setResp.body()); // Acá le mando el estadoSwitch que cree mas arriba
+    
+    // Aceptar códigos de éxito (200-299)
+    if (setResp.statusCode() >= 200 && setResp.statusCode() < 300) {
+        return ("Respuesta: " + setResp.body());
     } else {
-        throw new IOException("Error HTTP al setear:" + setResp.statusCode());
+        throw new IOException("Error HTTP " + setResp.statusCode() + " al setear switch " + SwitchURL + ". Respuesta: " + setResp.body());
     }
 }
 

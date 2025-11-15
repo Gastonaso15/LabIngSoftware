@@ -73,17 +73,19 @@ public class TemperatureController {
             // Si la habitación NO necesita calefacción Y su switch ESTÁ encendido
             if (sw != null && !room.needsHeating() && sw.isOn()) {
                 // Generamos la operación de apagado
+                // NO actualizamos el estado interno aquí - se actualizará DESPUÉS de que la operación física se ejecute exitosamente
                 operations.add(new Operation(sw.getSwitchUrl(), "OFF"));
-                // Actualizamos el estado interno del switch
-                sw.setOn(false);
-                // Recuperamos la energía que estaba consumiendo
+                // Recuperamos la energía que estaba consumiendo (para el cálculo de energía disponible)
                 currentConsumption -= room.getEnergyConsumption();
             }
         }
 
         // --- PASO 2: ENCENDER switches prioritarios (si hay energía) ---
 
+        // Recalcular energía disponible basándose en el estado actual después del PASO 1
         double availableEnergy = maxEnergy - currentConsumption;
+        // Usar un pequeño epsilon para evitar problemas de precisión de punto flotante
+        final double EPSILON = 0.001;
 
         // Obtenemos una lista de habitaciones que NECESITAN calefacción y están APAGADAS
         List<Room> roomsToHeat = allRooms.stream()
@@ -101,13 +103,16 @@ public class TemperatureController {
 
         // Iteramos por la lista de prioridad (de más fría a menos fría)
         for (Room roomToHeat : roomsToHeat) {
-            DataSwitch swToTurnOn = findSwitchByUrl(roomToHeat.getSwitchUrl()).get();
+            DataSwitch swToTurnOn = findSwitchByUrl(roomToHeat.getSwitchUrl()).orElse(null);
+            if (swToTurnOn == null) continue; // Saltar si no se encuentra el switch
+            
             double roomEnergy = roomToHeat.getEnergyConsumption();
 
             // --- Caso A: Hay energía de sobra. La encendemos.
-            if (roomEnergy <= availableEnergy) {
+            // Usar >= con epsilon para manejar precisión de punto flotante
+            if (roomEnergy <= availableEnergy + EPSILON) {
                 operations.add(new Operation(swToTurnOn.getSwitchUrl(), "ON"));
-                swToTurnOn.setOn(true);
+                // NO actualizamos el estado interno aquí - se actualizará DESPUÉS de que la operación física se ejecute exitosamente
                 availableEnergy -= roomEnergy;
 
                 // --- Caso B: No hay energía. Vemos si podemos "robar" de otra menos prioritaria.
@@ -120,20 +125,23 @@ public class TemperatureController {
                     // Comparamos prioridades
                     if (roomToHeat.getTemperatureDeficit() > runningRoom.getTemperatureDeficit()) {
 
-                        DataSwitch swToTurnOff = findSwitchByUrl(runningRoom.getSwitchUrl()).get();
+                        DataSwitch swToTurnOff = findSwitchByUrl(runningRoom.getSwitchUrl()).orElse(null);
+                        if (swToTurnOff == null) continue; // Saltar si no se encuentra el switch
+                        
                         double freedEnergy = runningRoom.getEnergyConsumption();
 
                         // Si apagando esta, ¿hay sitio para la nueva?
-                        if (availableEnergy + freedEnergy >= roomEnergy) {
+                        // Usar >= con epsilon para manejar precisión de punto flotante
+                        if (availableEnergy + freedEnergy >= roomEnergy - EPSILON) {
                             // ¡Sí! Hacemos el "swap"
 
                             // 1. Apagar la menos prioritaria
                             operations.add(new Operation(swToTurnOff.getSwitchUrl(), "OFF"));
-                            swToTurnOff.setOn(false);
+                            // NO actualizamos el estado interno aquí - se actualizará DESPUÉS de que la operación física se ejecute exitosamente
 
                             // 2. Encender la más prioritaria
                             operations.add(new Operation(swToTurnOn.getSwitchUrl(), "ON"));
-                            swToTurnOn.setOn(true);
+                            // NO actualizamos el estado interno aquí - se actualizará DESPUÉS de que la operación física se ejecute exitosamente
 
                             // 3. Actualizar energía disponible
                             availableEnergy = (availableEnergy + freedEnergy) - roomEnergy;
@@ -189,7 +197,7 @@ public class TemperatureController {
                 DataSwitch sw = findSwitchByUrl(room.getSwitchUrl()).orElse(null);
                 if (sw != null && sw.isOn()) {
                     operations.add(new Operation(sw.getSwitchUrl(), "OFF"));
-                    sw.setOn(false);
+                    // NO actualizamos el estado interno aquí - se actualizará DESPUÉS de que la operación física se ejecute exitosamente
                 }
             }
         }
@@ -221,7 +229,7 @@ public class TemperatureController {
                 DataSwitch sw = findSwitchByUrl(room.getSwitchUrl()).orElse(null);
                 if (sw != null && sw.isOn()){
                     operations.add(new Operation(sw.getSwitchUrl(), "OFF"));
-                    sw.setOn(false);
+                    // NO actualizamos el estado interno aquí - se actualizará DESPUÉS de que la operación física se ejecute exitosamente
                 }
             }
         }

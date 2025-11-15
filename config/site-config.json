@@ -1,26 +1,21 @@
 {
-  "siteName": "oficinaA",
-  "maxPowerWatts": 14000,
-  "rooms": [
-    {
-      "id": "1",
-      "name": "office1",
-      "desiredTemperature": 22.0,
-      "temperatureTolerance": 0.5,
-      "powerConsumptionWatts": 1800,
-      "priority": 1,
-      "sensorTopic": "sim/ht/1",
-      "switchUrl": "http://host.docker.internal:18080/switch/1"
-    },
-    {
-      "id": "2",
-      "name": "office2",
-      "desiredTemperature": 21.0,
-      "temperatureTolerance": 0.5,
-      "powerConsumptionWatts": 1500,
-      "priority": 1,
-      "sensorTopic": "sim/ht/2",
-      "switchUrl": "http://host.docker.internal:18080/switch/2"
-    }
-  ]
+  "site" : "oficinaA",
+  "maxEnergy" : "6 kWh",
+  "timeSlot" : {
+    "contractType" : "std",
+    "refreshPeriod" : "10000 ms"
+  },
+  "rooms" : [ {
+    "name" : "office1",
+    "expectedTemp" : "22",
+    "energy" : "2 kWh",
+    "switch" : "http://localhost:8080/switch/1",
+    "sensor" : "sim/ht/1"
+  }, {
+    "name" : "office2",
+    "expectedTemp" : "21",
+    "energy" : "2 kWh",
+    "switch" : "http://localhost:8080/switch/2",
+    "sensor" : "sim/ht/2"
+  } ]
 }

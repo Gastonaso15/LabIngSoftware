@@ -1,24 +1,26 @@
 {
-  "siteName": "Test Site",
-  "maxPowerWatts": 3000,
+  "site": "Test Site",
+  "maxEnergy": "3 kWh",
+  "timeSlot": {
+    "contractType": "std",
+    "refreshPeriod": "10000 ms"
+  },
   "rooms": [
     {
-      "id": "room1",
       "name": "Room 1",
-      "desiredTemperature": 22.0,
+      "expectedTemp": "22",
       "temperatureTolerance": 1.0,
-      "powerConsumptionWatts": 2000,
-      "sensorTopic": "mqtt:topic1",
-      "switchUrl": "http://host:port/switch/1"
+      "energy": "2 kWh",
+      "sensor": "mqtt:topic1",
+      "switch": "http://host:port/switch/1"
     },
     {
-      "id": "room2",
       "name": "Room 2",
-      "desiredTemperature": 21.0,
+      "expectedTemp": "21",
       "temperatureTolerance": 1.0,
-      "powerConsumptionWatts": 2000,
-      "sensorTopic": "mqtt:topic2",
-      "switchUrl": "http://host:port/switch/2"
+      "energy": "2 kWh",
+      "sensor": "mqtt:topic2",
+      "switch": "http://host:port/switch/2"
     }
   ]
 }

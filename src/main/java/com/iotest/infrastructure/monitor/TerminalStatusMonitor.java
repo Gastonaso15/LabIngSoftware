@@ -55,9 +55,9 @@ public class TerminalStatusMonitor {
         System.out.println("┌──────────────────────────────────────────────────────────────┐");
         System.out.println("│ ENERGÍA                                                      │");
         System.out.println("├──────────────────────────────────────────────────────────────┤");
-        System.out.printf(" │ Máxima:          %.2f kW                                     │%n", status.getMaxEnergy() / 1000.0);
-        System.out.printf(" │ Consumo Actual:  %.2f kW                                     │%n", status.getCurrentEnergyConsumption() / 1000.0);
-        System.out.printf(" │ Disponible:      %.2f kW                                     │%n", status.getAvailableEnergy() / 1000.0);
+        System.out.printf(" │ Máxima:          %.2f kW                                     │%n", status.getMaxEnergy());
+        System.out.printf(" │ Consumo Actual:  %.2f kW                                     │%n", status.getCurrentEnergyConsumption());
+        System.out.printf(" │ Disponible:      %.2f kW                                     │%n", status.getAvailableEnergy());
         System.out.println("└──────────────────────────────────────────────────────────────┘");
         System.out.println();
 

@@ -6,7 +6,7 @@ services:
     container_name: broker-mqtt
     restart: unless-stopped
     ports:
-      - "11883:1883"
+      - "1883:1883"
     volumes:
       - ./mosquitto/config:/mosquitto/config:ro
       - ./mosquitto/data:/mosquitto/data
@@ -44,6 +44,6 @@ services:
       - ./config/simulation_config.json:/config/simulation_config.json:ro
       - ./logs:/logs
     ports:
-      - "18080:8080"
+      - "8080:8080"
     restart: unless-stopped
 

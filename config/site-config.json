@@ -1,21 +1,45 @@
 {
-  "site" : "oficinaA",
-  "maxEnergy" : "6 kWh",
-  "timeSlot" : {
-    "contractType" : "std",
-    "refreshPeriod" : "10000 ms"
+  "site": "oficinaA",
+  "maxEnergy": "100 kWh",
+  "timeSlot": {
+    "contractType": "std",
+    "refreshPeriod": "10000 ms"
   },
-  "rooms" : [ {
-    "name" : "office1",
-    "expectedTemp" : "22",
-    "energy" : "2 kWh",
-    "switch" : "http://host.docker.internal:8080/switch/1",
-    "sensor" : "sim/ht/1"
-  }, {
-    "name" : "office2",
-    "expectedTemp" : "21",
-    "energy" : "2 kWh",
-    "switch" : "http://host.docker.internal:8080/switch/2",
-    "sensor" : "sim/ht/2"
-  } ]
+  "rooms": [
+    {
+      "name": "office1",
+      "expectedTemp": "22",
+      "energy": "20 kWh",
+      "switch": "http://host.docker.internal:8080/switch/1",
+      "sensor": "sim/ht/1"
+    },
+    {
+      "name": "office2",
+      "expectedTemp": "21",
+      "energy": "20 kWh",
+      "switch": "http://host.docker.internal:8080/switch/2",
+      "sensor": "sim/ht/2"
+    },
+    {
+      "name": "office3",
+      "expectedTemp": "21",
+      "energy": "90 kWh",
+      "switch": "http://host.docker.internal:8080/switch/3",
+      "sensor": "sim/ht/3"
+    },
+    {
+      "name": "office4",
+      "expectedTemp": "23",
+      "energy": "20 kWh",
+      "switch": "http://host.docker.internal:8080/switch/4",
+      "sensor": "sim/ht/4"
+    },
+    {
+      "name": "office5",
+      "expectedTemp": "23",
+      "energy": "20 kWh",
+      "switch": "http://host.docker.internal:8080/switch/5",
+      "sensor": "sim/ht/5"
+    }
+  ]
 }

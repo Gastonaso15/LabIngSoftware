@@ -52,9 +52,60 @@ else
 fi
 echo ""
 
-# Esperar a que el broker MQTT esté listo
-echo -e "${YELLOW}⏳ Esperando 5 segundos para que el broker MQTT esté listo...${NC}"
+# Esperar a que el broker MQTT y el simulador estén listos
+echo -e "${YELLOW}⏳ Esperando 5 segundos para que el broker MQTT/simulador estén listos...${NC}"
 sleep 5
+echo ""
+
+# Paso 1.1: Actualizar config/site-config.json desde el simulador y adaptar URLs
+echo -e "${YELLOW}🧩 Actualizando config/site-config.json desde el simulador...${NC}"
+CONFIG_DIR="config"
+CONFIG_FILE="${CONFIG_DIR}/site-config.json"
+TMP_FILE="${CONFIG_FILE}.tmp"
+if curl -sSf -X GET "http://localhost:8080/site-config" -o "${TMP_FILE}"; then
+    echo "   Config recibido desde simulador (http://localhost:8080/site-config)"
+    # Adaptar URLs de switches de localhost -> host.docker.internal y completar sensores sim/ht -> sim/ht/<n>
+    if command -v jq >/dev/null 2>&1; then
+        jq '(.rooms[]) |= (
+              .switch |= sub("http://localhost:8080/switch/"; "http://host.docker.internal:8080/switch/")
+            | .sensor = (
+                if (.sensor | tostring) | test("^sim/ht/?$") then
+                  "sim/ht/" + (.switch | capture("switch/(?<n>[0-9]+)$").n)
+                else
+                  .sensor
+                end)
+          )' "${TMP_FILE}" > "${TMP_FILE}.adapted" && mv "${TMP_FILE}.adapted" "${TMP_FILE}"
+    else
+        # Fallback sin jq: usar python para transformar JSON
+        python3 - "$TMP_FILE" << 'PY'
+import json, re, sys, io
+path = sys.argv[1]
+with open(path, 'r', encoding='utf-8') as f:
+    data = json.load(f)
+rooms = data.get('rooms', [])
+for room in rooms:
+    sw = room.get('switch', '')
+    # Adaptar URL de switch
+    room['switch'] = sw.replace('http://localhost:8080/switch/', 'http://host.docker.internal:8080/switch/')
+    # Completar sensor si es sim/ht o sim/ht/
+    sensor = room.get('sensor', '')
+    if sensor in ('sim/ht', 'sim/ht/'):
+        m = re.search(r'switch/(\d+)$', room['switch'])
+        if m:
+            room['sensor'] = f"sim/ht/{m.group(1)}"
+with open(path, 'w', encoding='utf-8') as f:
+    json.dump(data, f, ensure_ascii=False, indent=2)
+PY
+        # Asegurar también el reemplazo básico de URLs si python no alteró todas
+        sed -E 's#http://localhost:8080/switch/#http://host.docker.internal:8080/switch/#g' "${TMP_FILE}" > "${TMP_FILE}.adapted" && mv "${TMP_FILE}.adapted" "${TMP_FILE}"
+    fi
+    # Mover al archivo definitivo actualizado
+    mv "${TMP_FILE}" "${CONFIG_FILE}"
+    echo -e "${GREEN}✅ config/site-config.json actualizado y URLs adaptadas${NC}"
+else
+    echo -e "${YELLOW}⚠️  No se pudo obtener site-config del simulador. Se mantiene el archivo existente.${NC}"
+    rm -f "${TMP_FILE}" 2>/dev/null || true
+fi
 echo ""
 
 # Paso 2: Detener contenedores existentes de labingsoftware (si están corriendo)

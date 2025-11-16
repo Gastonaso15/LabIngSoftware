@@ -17,7 +17,7 @@ USER iotest
 
 # Variables de entorno
 ENV JAVA_OPTS="-Xmx512m -Xms256m"
-ENV MQTT_BROKER="tcp://localhost:11883"
+ENV MQTT_BROKER="tcp://localhost:1883"
 ENV CONFIG_PATH="/app/config/site-config.json"
 
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \

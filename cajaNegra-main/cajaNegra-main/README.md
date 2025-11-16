@@ -39,3 +39,7 @@ docker compose build --no-cache simulator
 
 # Dentro de la carpeta "blackBox"
 docker compose up -d
+
+# Dentro de la carpeta "blackBox" - Para analizar las estadísticas de la simulación
+java -jar analizador-1.0.0.jar logs\simulator.json.log config\simulation_config.json logs\simulator-access.json.log
+# Para garantizar la fidelidad de los datos, elimine los logs posterior a cada simulación

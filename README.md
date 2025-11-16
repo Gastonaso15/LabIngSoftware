@@ -35,11 +35,11 @@ Este script:
 6. ⏳ Espera a que el sistema esté listo y muestra el estado
 
 **Endpoints disponibles después del inicio:**
-- API REST: `http://localhost:18081/api`
-- Health Check: `http://localhost:18081/api/health`
-- Estado del Sistema: `http://localhost:18081/api/system/status`
-- Simulador: `http://localhost:18080`
-- Broker MQTT: `tcp://localhost:11883`
+- API REST: `http://localhost:8081/api`
+- Health Check: `http://localhost:8081/api/health`
+- Estado del Sistema: `http://localhost:8081/api/system/status`
+- Simulador: `http://localhost:8080`
+- Broker MQTT: `tcp://localhost:1883`
 
 #### Detener el sistema completo
 
@@ -79,8 +79,8 @@ docker compose up --build -d
 ```
 
 Esto inicia:
-- Broker MQTT en `localhost:11883` (puerto externo)
-- Simulador con API HTTP en `http://localhost:18080`
+- Broker MQTT en `localhost:1883` (puerto externo)
+- Simulador con API HTTP en `http://localhost:8080`
 
 **Verificar que está corriendo:**
 ```bash
@@ -112,10 +112,10 @@ cd docker
 docker compose up --build -d
 ```
 
-El servicio queda disponible en `http://localhost:18081`.
+El servicio queda disponible en `http://localhost:8081`.
 
 **Variables relevantes:**
-- `MQTT_BROKER=tcp://host.docker.internal:11883` (conectado al broker de la caja negra)
+- `MQTT_BROKER=tcp://host.docker.internal:1883` (conectado al broker de la caja negra)
 - `CONFIG_PATH=/app/config/site-config.json` (montado desde `LabIngSoftware/config/site-config.json`)
 
 #### Paso 4: Verificar que todo está funcionando
@@ -133,8 +133,8 @@ Deberías ver mensajes del tipo "Mensaje procesado exitosamente…" y "Monitor d
 
 **Verificar estado del sistema:**
 ```bash
-curl http://localhost:18081/api/health | jq
-curl http://localhost:18081/api/system/status | jq
+curl http://localhost:8081/api/health | jq
+curl http://localhost:8081/api/system/status | jq
 ```
 
 **Verificar contenedores:**
@@ -171,18 +171,18 @@ cd LabIngSoftware
 
 ## 3. API REST
 
-Base URL (por defecto): `http://localhost:18081/api`
+Base URL (por defecto): `http://localhost:8081/api`
 
-> **Nota**: Los puertos han sido actualizados para evitar conflictos:
-> - API REST: `18081` (antes `8081`)
-> - Simulador: `18080` (antes `8080`)
-> - Broker MQTT: `11883` (antes `1883`)
+> **Nota**: Puertos del sistema:
+> - API REST: `8081`
+> - Simulador: `8080`
+> - Broker MQTT: `1883`
 
 ### 3.1 POST `/sensor/reading`
 - **Descripción**: Recibe una lectura de sensor (usado tanto por MQTT como para pruebas manuales).
 - **curl**:
   ```bash
-  curl -X POST http://localhost:18081/api/sensor/reading \
+  curl -X POST http://localhost:8081/api/sensor/reading \
        -H "Content-Type: application/json" \
        -d '{"sensor_id":"sim/ht/1","temperature":18.5,"time_stamp":"2025-11-11T03:40:00"}'
   ```
@@ -201,7 +201,7 @@ Base URL (por defecto): `http://localhost:18081/api`
     "operations_count": 1,
     "operations": [
       {
-        "switch_url": "http://localhost:18080/switch/1",
+        "switch_url": "http://localhost:8080/switch/1",
         "action": "ON",
         "success": true,
         "message": "Operación ejecutada exitosamente..."
@@ -215,7 +215,7 @@ Base URL (por defecto): `http://localhost:18081/api`
 - **Descripción**: Estado global (energía máxima, consumo actual, habitaciones).
 - **curl**:
   ```bash
-  curl http://localhost:18081/api/system/status | jq
+  curl http://localhost:8081/api/system/status | jq
   ```
 - **Response**:
   ```json
@@ -243,14 +243,14 @@ Base URL (por defecto): `http://localhost:18081/api`
 - **Descripción**: Lista el estado de todas las habitaciones.
 - **curl**:
   ```bash
-  curl http://localhost:18081/api/rooms | jq
+  curl http://localhost:8081/api/rooms | jq
   ```
 
 ### 3.4 GET `/rooms/{roomId}`
 - **Descripción**: Estado de una habitación específica (`roomId` acepta `sensor_id` o `id` definido en configuración).
 - **curl**:
   ```bash
-  curl http://localhost:18081/api/rooms/1 | jq
+  curl http://localhost:8081/api/rooms/1 | jq
   ```
 - **Errores**: `404` si no existe.
 
@@ -258,7 +258,7 @@ Base URL (por defecto): `http://localhost:18081/api`
 - **Descripción**: Aplica política de apagado cuando la tarifa es alta.
 - **curl**:
   ```bash
-  curl -X POST http://localhost:18081/api/system/energy-cost-check \
+  curl -X POST http://localhost:8081/api/system/energy-cost-check \
        -H "Content-Type: application/json" \
        -d '{"contract":"testContract"}'
   ```
@@ -283,7 +283,7 @@ Base URL (por defecto): `http://localhost:18081/api`
 - **Descripción**: Health check simple.
 - **curl**:
   ```bash
-  curl http://localhost:18081/api/health | jq
+  curl http://localhost:8081/api/health | jq
   ```
 - **Response**:
   ```json
@@ -311,7 +311,7 @@ Base URL (por defecto): `http://localhost:18081/api`
         "temperatureTolerance": 0.5,
         "powerConsumptionWatts": 1800,
         "sensorTopic": "sim/ht/1",
-        "switchUrl": "http://host.docker.internal:18080/switch/1"
+        "switchUrl": "http://host.docker.internal:8080/switch/1"
       },
       ...
     ]
@@ -347,12 +347,12 @@ tail -f logs/temperature-control.log
 
 **Estado del sistema:**
 ```bash
-curl http://localhost:18081/api/system/status | jq
+curl http://localhost:8081/api/system/status | jq
 ```
 
 **Health check:**
 ```bash
-curl http://localhost:18081/api/health | jq
+curl http://localhost:8081/api/health | jq
 ```
 
 **Verificar switches del simulador:**
@@ -380,20 +380,20 @@ docker stats
 
 **No se conecta a MQTT:**
 - Asegurarse de que el broker de la caja negra está corriendo antes de levantar LabIngSoftware
-- Verificar que la variable `MQTT_BROKER` apunte a `tcp://host.docker.internal:11883` (dentro del contenedor)
-- Verificar que el puerto del broker sea `11883` (puerto externo)
+- Verificar que la variable `MQTT_BROKER` apunte a `tcp://host.docker.internal:1883` (dentro del contenedor)
+- Verificar que el puerto del broker sea `1883` (puerto externo)
 - Revisar logs: `docker compose -f docker/docker-compose.yml logs labingsoftware | grep -i mqtt`
 
 **Conflicto de puertos:**
-- La caja negra usa `localhost:18080` (simulador) y `localhost:11883` (MQTT)
-- LabIngSoftware expone `localhost:18081` (API REST)
+- La caja negra usa `localhost:8080` (simulador) y `localhost:1883` (MQTT)
+- LabIngSoftware expone `localhost:8081` (API REST)
 - Si necesitas cambiar puertos, edita:
   - `docker/docker-compose.yml` para LabIngSoftware
   - `cajaNegra-main/cajaNegra-main/blackBox/docker-compose.yml` para el simulador
   - `src/main/resources/application.yml` para la configuración de Spring
 
 **Switches no responden:**
-- Revisar que `switchUrl` en `config/site-config.json` use `http://host.docker.internal:18080/switch/X`
+- Revisar que `switchUrl` en `config/site-config.json` use `http://host.docker.internal:8080/switch/X`
 - Verificar que la caja negra esté corriendo: `docker ps | grep simulator`
 - Ver logs del simulador: `cd cajaNegra-main/cajaNegra-main/blackBox && docker compose logs simulator`
 
@@ -433,9 +433,9 @@ docker stats
 
 **Verificar puertos en uso:**
 ```bash
-netstat -tuln | grep -E "18081|18080|11883"
+netstat -tuln | grep -E "8081|8080|1883"
 # o
-ss -tuln | grep -E "18081|18080|11883"
+ss -tuln | grep -E "8081|8080|1883"
 ```
 
 **Verificar variables de entorno del contenedor:**

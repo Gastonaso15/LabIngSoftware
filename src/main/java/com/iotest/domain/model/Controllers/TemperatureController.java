@@ -191,8 +191,9 @@ public class TemperatureController {
     public List<Operation> processTimeEvent(TimeEvent timeEvent) {
         List<Operation> operations = new ArrayList<>();
         
-        // Si la tarifa cambió a HIGH, apagar todos los switches
-        if (timeEvent.isChangeToHigh()) {
+        // Si la tarifa actual es HIGH, apagar todos los switches que estén encendidos
+        // Esto cubre tanto el caso de cambio a HIGH como el caso de que ya esté en HIGH
+        if (timeEvent.getCurrentTariff() == EnergyCost.HIGH) {
             for (Room room : allRooms) {
                 DataSwitch sw = findSwitchByUrl(room.getSwitchUrl()).orElse(null);
                 if (sw != null && sw.isOn()) {

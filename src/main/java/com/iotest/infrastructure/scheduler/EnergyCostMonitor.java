@@ -2,9 +2,8 @@ package com.iotest.infrastructure.scheduler;
 
 import com.iotest.domain.model.Controllers.TemperatureController;
 import com.iotest.domain.model.EnergyCost;
-import com.iotest.domain.model.Operation;
 import com.iotest.domain.model.TimeEvent;
-import com.iotest.domain.model.Logica.ISwitchController;
+import com.iotest.domain.service.TemperatureControlService;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import org.slf4j.Logger;
@@ -13,11 +12,9 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
-import java.io.IOException;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
-import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
@@ -40,7 +37,7 @@ public class EnergyCostMonitor {
     private static final Logger logger = LoggerFactory.getLogger(EnergyCostMonitor.class);
 
     private final TemperatureController temperatureController;
-    private final ISwitchController switchController;
+    private final TemperatureControlService temperatureControlService;
     private final String contract;
 
     // Estado interno para detectar cambios
@@ -53,11 +50,11 @@ public class EnergyCostMonitor {
 
     public EnergyCostMonitor(
             TemperatureController temperatureController,
-            ISwitchController switchController,
+            TemperatureControlService temperatureControlService,
             @Value("${temperature-control.energy-contract:testContract}") String contract,
             @Value("${energy-cost-monitor.check-interval-seconds:5}") long checkIntervalSeconds) {
         this.temperatureController = temperatureController;
-        this.switchController = switchController;
+        this.temperatureControlService = temperatureControlService;
         this.contract = contract;
         this.checkIntervalMs = checkIntervalSeconds * 1000; // Convertir segundos a milisegundos
     }
@@ -207,37 +204,34 @@ public class EnergyCostMonitor {
 
     /**
      * Procesa un evento de tiempo: envía el evento al controller y ejecuta las operaciones.
+     * Usa el TemperatureControlService para asegurar que el estado interno se actualice correctamente.
      */
     private void processTimeEvent(TimeEvent timeEvent) {
         try {
+            // IMPORTANTE: Sincronizar el estado real de los switches ANTES de que el controller
+            // tome decisiones, para asegurar que detecte correctamente qué switches están encendidos
+            logger.debug("Sincronizando estado de switches antes de procesar evento de tiempo...");
+            temperatureControlService.synchronizeSwitchStates();
+            
             // Enviar evento al controller (según el diagrama: Evento → Controller)
-            List<Operation> operations = temperatureController.processTimeEvent(timeEvent);
+            // El controller devuelve las operaciones a realizar
+            var operations = temperatureController.processTimeEvent(timeEvent);
 
-            // Ejecutar las operaciones sobre los switches
+            // Ejecutar las operaciones usando el servicio para mantener sincronización
             if (!operations.isEmpty()) {
-                logger.info("Ejecutando {} operaciones debido a cambio de tarifa", operations.size());
-                executeOperations(operations);
+                logger.info("Ejecutando {} operaciones debido a cambio de tarifa ({} → {})", 
+                    operations.size(),
+                    timeEvent.getPreviousTariff() == EnergyCost.HIGH ? "HIGH" : "LOW",
+                    timeEvent.getCurrentTariff() == EnergyCost.HIGH ? "HIGH" : "LOW");
+                // Usar el servicio para ejecutar operaciones y mantener el estado sincronizado
+                temperatureControlService.executeOperationsForTimeEvent(operations);
             } else {
-                logger.debug("No se requieren operaciones para este cambio de tarifa");
+                logger.debug("No se requieren operaciones para este cambio de tarifa ({} → {})", 
+                    timeEvent.getPreviousTariff() == EnergyCost.HIGH ? "HIGH" : "LOW",
+                    timeEvent.getCurrentTariff() == EnergyCost.HIGH ? "HIGH" : "LOW");
             }
         } catch (Exception e) {
             logger.error("Error al procesar evento de tiempo: {}", e.getMessage(), e);
-        }
-    }
-
-    /**
-     * Ejecuta las operaciones sobre los switches físicos.
-     */
-    private void executeOperations(List<Operation> operations) {
-        for (Operation operation : operations) {
-            try {
-                boolean desiredState = "ON".equals(operation.getAction());
-                switchController.postSwitchStatus(operation.getSwitchUrl(), desiredState);
-                logger.info("Operación ejecutada: {} en {}", operation.getAction(), operation.getSwitchUrl());
-            } catch (IOException | InterruptedException e) {
-                logger.error("Error al ejecutar operación en {}: {}", 
-                    operation.getSwitchUrl(), e.getMessage());
-            }
         }
     }
 }

@@ -170,29 +170,29 @@ MAX_RETRIES=5
 RETRY_COUNT=0
 
 while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
-    if curl -s http://localhost:18081/api/health >/dev/null 2>&1; then
+    if curl -s http://localhost:8081/api/health >/dev/null 2>&1; then
         echo -e "${GREEN}✅ Sistema está funcionando correctamente!${NC}"
         echo ""
         
         # Mostrar información del sistema
         echo -e "${CYAN}📋 Información del Sistema:${NC}"
-        echo -e "${CYAN}   API REST: http://localhost:18081/api${NC}"
-        echo -e "${CYAN}   Health: http://localhost:18081/api/health${NC}"
-        echo -e "${CYAN}   Estado: http://localhost:18081/api/system/status${NC}"
+        echo -e "${CYAN}   API REST: http://localhost:8081/api${NC}"
+        echo -e "${CYAN}   Health: http://localhost:8081/api/health${NC}"
+        echo -e "${CYAN}   Estado: http://localhost:8081/api/system/status${NC}"
         echo ""
         
         # Mostrar estado actual
         echo -e "${CYAN}📊 Estado Actual:${NC}"
-        curl -s http://localhost:18081/api/system/status | python3 -m json.tool 2>/dev/null || \
-        curl -s http://localhost:18081/api/system/status | jq 2>/dev/null || \
-        curl -s http://localhost:18081/api/system/status
+        curl -s http://localhost:8081/api/system/status | python3 -m json.tool 2>/dev/null || \
+        curl -s http://localhost:8081/api/system/status | jq 2>/dev/null || \
+        curl -s http://localhost:8081/api/system/status
         echo ""
         
         echo -e "${GREEN}✅ Todo listo!${NC}"
         echo ""
         echo -e "${CYAN}📝 Comandos útiles:${NC}"
         echo -e "${CYAN}   Ver logs: docker compose -f docker/docker-compose.yml logs -f${NC}"
-        echo -e "${CYAN}   Ver estado: curl http://localhost:18081/api/system/status | jq${NC}"
+        echo -e "${CYAN}   Ver estado: curl http://localhost:8081/api/system/status | jq${NC}"
         echo -e "${CYAN}   Detener: docker compose -f docker/docker-compose.yml down${NC}"
         echo ""
         echo -e "${YELLOW}💡 El monitor de terminal está habilitado y mostrará el estado cada 5 segundos en los logs${NC}"
@@ -208,7 +208,7 @@ while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
 done
 
 echo -e "${YELLOW}⚠️  El sistema está iniciando, puede tardar unos segundos más...${NC}"
-echo -e "${CYAN}   Intenta: curl http://localhost:18081/api/health${NC}"
+echo -e "${CYAN}   Intenta: curl http://localhost:8081/api/health${NC}"
 echo ""
 echo -e "${CYAN}📝 Ver logs: docker compose -f docker/docker-compose.yml logs -f labingsoftware${NC}"
 

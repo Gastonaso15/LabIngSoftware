@@ -1,6 +1,7 @@
 package com.iotest.domain.service;
 
 import com.iotest.domain.model.Controllers.TemperatureController;
+import com.iotest.domain.model.EnergyCost;
 import com.iotest.domain.model.Logica.ISwitchController;
 import com.iotest.domain.model.Operation;
 import com.iotest.domain.model.POJOS.DataSensor;
@@ -11,6 +12,10 @@ import com.iotest.domain.model.api.dto.RoomStatusResponse;
 import com.iotest.domain.model.api.dto.SensorReadingRequest;
 import com.iotest.domain.model.api.dto.SwitchOperationResponse;
 import com.iotest.domain.model.api.dto.SystemStatusResponse;
+import jakarta.annotation.PostConstruct;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
@@ -27,20 +32,35 @@ import java.util.stream.Collectors;
 @Service
 public class TemperatureControlService {
 
+    private static final Logger logger = LoggerFactory.getLogger(TemperatureControlService.class);
+
     private final TemperatureController temperatureController;
     private final ISwitchController switchController;
     private final List<Room> rooms;
     private final List<DataSwitch> switches;
+    private final String energyContract;
 
     public TemperatureControlService(
             TemperatureController temperatureController,
             ISwitchController switchController,
             List<Room> rooms,
-            List<DataSwitch> switches) {
+            List<DataSwitch> switches,
+            @Value("${temperature-control.energy-contract:testContract}") String energyContract) {
         this.temperatureController = temperatureController;
         this.switchController = switchController;
         this.rooms = rooms;
         this.switches = switches;
+        this.energyContract = energyContract;
+    }
+
+    /**
+     * Sincroniza el estado de los switches al inicio de la aplicación.
+     */
+    @PostConstruct
+    public void initializeSwitchStates() {
+        logger.info("Inicializando y sincronizando estados de switches...");
+        synchronizeSwitchStates();
+        logger.info("Sincronización de switches completada");
     }
 
     /**
@@ -50,6 +70,18 @@ public class TemperatureControlService {
      * @return Respuesta con las operaciones ejecutadas
      */
     public ProcessOperationsResponse processSensorReading(SensorReadingRequest request) {
+        // Sincronizar estado real de switches antes de tomar decisiones
+        synchronizeSwitchStates();
+        
+        // Verificar la tarifa actual - si es HIGH, no permitir encender switches
+        long currentTime = System.currentTimeMillis();
+        EnergyCost.EnergyZone zone = EnergyCost.energyZone(energyContract, currentTime);
+        boolean isHighTariff = zone.current() == EnergyCost.HIGH;
+        
+        if (isHighTariff) {
+            logger.debug("Tarifa actual es HIGH - bloqueando operaciones de encendido de switches");
+        }
+        
         // Convertir DTO a modelo de dominio
         DataSensor sensorData = new DataSensor(
                 request.getSensorId(),
@@ -59,6 +91,20 @@ public class TemperatureControlService {
 
         // Obtener operaciones del controlador
         List<Operation> operations = temperatureController.processSensorData(sensorData);
+        
+        // Si la tarifa es HIGH, filtrar operaciones de "ON" (solo permitir "OFF")
+        if (isHighTariff) {
+            List<Operation> filteredOperations = new ArrayList<>();
+            for (Operation op : operations) {
+                if ("OFF".equals(op.getAction())) {
+                    filteredOperations.add(op);
+                    logger.debug("Permitiendo operación OFF en tarifa HIGH: {}", op.getSwitchUrl());
+                } else {
+                    logger.info("Bloqueando operación ON en tarifa HIGH: {} - La tarifa alta no permite encender switches", op.getSwitchUrl());
+                }
+            }
+            operations = filteredOperations;
+        }
 
         // Ejecutar operaciones sobre los switches
         List<SwitchOperationResponse> executedOperations = executeOperations(operations);
@@ -208,6 +254,48 @@ public class TemperatureControlService {
                 })
                 .mapToDouble(Room::getEnergyConsumption)
                 .sum();
+    }
+
+    /**
+     * Ejecuta operaciones para eventos de tiempo (cambios de tarifa).
+     * Este método es usado por el EnergyCostMonitor para ejecutar operaciones
+     * manteniendo la sincronización del estado interno.
+     */
+    public void executeOperationsForTimeEvent(List<Operation> operations) {
+        // Sincronizar estado antes de ejecutar
+        synchronizeSwitchStates();
+        
+        // Ejecutar operaciones (esto actualiza el estado interno)
+        executeOperations(operations);
+        
+        // Sincronizar estado después de ejecutar para asegurar consistencia
+        synchronizeSwitchStates();
+    }
+
+    /**
+     * Sincroniza el estado interno de los switches con su estado real consultándolos.
+     * Esto asegura que el sistema siempre tenga el estado correcto antes de tomar decisiones.
+     * 
+     * Este método es público para que pueda ser llamado desde otros componentes (como EnergyCostMonitor).
+     */
+    public void synchronizeSwitchStates() {
+        for (DataSwitch dataSwitch : switches) {
+            try {
+                String statusJson = switchController.getSwitchStatus(dataSwitch.getSwitchUrl());
+                // El switch devuelve {"id":1,"state":true/false}
+                boolean actualState = statusJson.contains("\"state\":true") || statusJson.contains("\"state\": true");
+                
+                if (dataSwitch.isOn() != actualState) {
+                    logger.warn("🔄 Sincronizando switch {}: estado interno era {}, estado real es {}", 
+                        dataSwitch.getSwitchUrl(), dataSwitch.isOn(), actualState);
+                    dataSwitch.setOn(actualState);
+                }
+            } catch (IOException | InterruptedException e) {
+                logger.error("Error al sincronizar estado del switch {}: {}", 
+                    dataSwitch.getSwitchUrl(), e.getMessage());
+                // No lanzamos excepción, solo registramos el error para no interrumpir el flujo
+            }
+        }
     }
 }
 

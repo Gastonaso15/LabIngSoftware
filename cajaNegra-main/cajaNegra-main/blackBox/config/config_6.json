@@ -3,14 +3,14 @@
     {
       "room": {
         "id": 1,
-        "T0": 17.0,
+        "T0": 18.0,
         "T_out": 8.0,
         "P_in": 0.0,
         "C": 1600000.0,
         "UA": 80.0,
         "name": "office1",
         "expectedTemp": "22",
-        "energy": "2 kWh",
+        "energy": "20 kWh",
         "switch": "http://localhost:8080/switch/1",
         "sensor": "sim/ht"
       },
@@ -25,14 +25,14 @@
     {
       "room": {
         "id": 2,
-        "T0": 18.0,
+        "T0": 20.0,
         "T_out": 8.0,
         "P_in": 0.0,
         "C": 1600000.0,
         "UA": 80.0,
         "name": "office2",
         "expectedTemp": "21",
-        "energy": "2 kWh",
+        "energy": "20 kWh",
         "switch": "http://localhost:8080/switch/2",
         "sensor": "sim/ht"
       },
@@ -43,14 +43,36 @@
         "p_entregada": 1500
       },
       "modeloTermico": { "intervaloSegundos": 1 }
+    },
+    {
+      "room": {
+        "id": 3,
+        "T0": 10.0,
+        "T_out": 8.0,
+        "P_in": 0.0,
+        "C": 1600000.0,
+        "UA": 80.0,
+        "name": "office3",
+        "expectedTemp": "21",
+        "energy": "20 kWh",
+        "switch": "http://localhost:8080/switch/3",
+        "sensor": "sim/ht"
+      },
+      "calefactor": {
+        "type": "loza hidraulica",
+        "p_electrica": 1000,
+        "state": false,
+        "p_entregada": 1500
+      },
+      "modeloTermico": { "intervaloSegundos": 1 }
     }
   ],
   "simulacion": {
-    "duracionSegundos": 30000,
-    "escenario": 1,
-    "warp": 200.0,
+    "duracionSegundos": 5000,
+    "escenario": 2,
+    "warp": 100.0,
     "site": "oficinaA",
-    "maxEnergy": "6.0 kWh",
+    "maxEnergy": "140 kWh",
     "timeSlot": { "contractType": "std", "refreshPeriod": "10000 ms" }
   }
 }

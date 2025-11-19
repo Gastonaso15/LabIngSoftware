@@ -54,13 +54,34 @@ public class TemperatureControlService {
     }
 
     /**
-     * Sincroniza el estado de los switches al inicio de la aplicación.
+     * Sincroniza el estado de los switches al inicio de la aplicación
+     * y apaga todos los switches para asegurar un estado inicial limpio.
      */
     @PostConstruct
     public void initializeSwitchStates() {
         logger.info("Inicializando y sincronizando estados de switches...");
         synchronizeSwitchStates();
         logger.info("Sincronización de switches completada");
+        
+        // Apagar todos los switches al inicio, sin importar su estado actual
+        logger.info("Apagando todos los switches al inicio del sistema...");
+        int successCount = 0;
+        int errorCount = 0;
+        
+        for (DataSwitch dataSwitch : switches) {
+            try {
+                switchController.postSwitchStatus(dataSwitch.getSwitchUrl(), false);
+                dataSwitch.setOn(false);
+                successCount++;
+                logger.info("✅ Switch {} apagado exitosamente", dataSwitch.getSwitchUrl());
+            } catch (IOException | InterruptedException e) {
+                errorCount++;
+                logger.error("❌ Error al apagar switch {}: {}", dataSwitch.getSwitchUrl(), e.getMessage());
+                // Continuar con los demás switches aunque uno falle
+            }
+        }
+        
+        logger.info("Inicialización completada: {} switches apagados exitosamente, {} errores", successCount, errorCount);
     }
 
     /**

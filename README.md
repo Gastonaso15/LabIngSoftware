@@ -325,6 +325,17 @@ Base URL (por defecto): `http://localhost:8081/api`
 
 ### Scripts de monitoreo
 
+**Monitor simplificado (recomendado):**
+```bash
+# Con delay por defecto (5 segundos - muestra cada actualización)
+./ver_monitor_simplificado.sh
+
+# Si quieres más lento, puedes especificar un delay mayor
+./ver_monitor_simplificado.sh 10
+```
+
+Este script muestra solo el estado formateado del monitor (habitaciones y energía) con la tarifa actual, filtrando los logs DEBUG repetitivos.
+
 **Ver logs en tiempo real:**
 ```bash
 # Logs de LabIngSoftware

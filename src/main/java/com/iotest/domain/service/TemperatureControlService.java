@@ -60,8 +60,13 @@ public class TemperatureControlService {
     @PostConstruct
     public void initializeSwitchStates() {
         logger.info("Inicializando y sincronizando estados de switches...");
-        synchronizeSwitchStates();
-        logger.info("Sincronización de switches completada");
+        try {
+            synchronizeSwitchStates();
+            logger.info("Sincronización de switches completada");
+        } catch (Exception e) {
+            logger.warn("⚠️ No se pudo sincronizar estados de switches durante el inicio (el simulador puede no estar disponible aún): {}", 
+                e.getMessage());
+        }
         
         // Apagar todos los switches al inicio, sin importar su estado actual
         logger.info("Apagando todos los switches al inicio del sistema...");
@@ -303,6 +308,14 @@ public class TemperatureControlService {
         for (DataSwitch dataSwitch : switches) {
             try {
                 String statusJson = switchController.getSwitchStatus(dataSwitch.getSwitchUrl());
+                
+                // Verificar que la respuesta no sea null antes de procesarla
+                if (statusJson == null || statusJson.trim().isEmpty()) {
+                    logger.warn("⚠️ Respuesta vacía o null del switch {} - omitiendo sincronización", 
+                        dataSwitch.getSwitchUrl());
+                    continue;
+                }
+                
                 // El switch devuelve {"id":1,"state":true/false}
                 boolean actualState = statusJson.contains("\"state\":true") || statusJson.contains("\"state\": true");
                 

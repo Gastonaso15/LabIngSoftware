@@ -38,6 +38,8 @@ public class TemperatureController {
     /**
      * Este es el método principal que define la API de lógica.
      * Recibe datos del sensor y devuelve las acciones a tomar.
+     * Solo genera operaciones para la habitación que reportó el sensor,
+     * pero puede apagar otras habitaciones que ya no necesitan calefacción.
      */
     public List<Operation> processSensorData(DataSensor sensorData) {
 
@@ -52,14 +54,111 @@ public class TemperatureController {
         // 2. Actualizar el estado interno de la habitación
         reportingRoom.updateTemperature(sensorData.getTemperature(), sensorData.getTimestamp());
 
-        // 3. Ejecutar la lógica principal de decisión
-        return calculateOperations();
+        // 3. Ejecutar la lógica principal de decisión solo para la habitación que reportó
+        return calculateOperationsForRoom(reportingRoom);
+    }
+
+    /**
+     * Contiene la lógica principal del controlador para una habitación específica.
+     * Decide qué switches prender o apagar basado en el estado de la habitación reportada
+     * y el límite de energía. También puede apagar otras habitaciones que ya no necesitan calefacción.
+     * 
+     * @param reportingRoom La habitación que reportó el sensor
+     * @return Lista de operaciones a realizar
+     */
+    private List<Operation> calculateOperationsForRoom(Room reportingRoom) {
+        List<Operation> operations = new ArrayList<>();
+        double currentConsumption = getCurrentEnergyConsumption();
+
+        // --- PASO 1: APAGAR switches que ya no se necesitan (todas las habitaciones) ---
+        // Iteramos todas las habitaciones para ver si alguna está cálida pero encendida.
+        for (Room room : allRooms) {
+            DataSwitch sw = findSwitchByUrl(room.getSwitchUrl()).orElse(null);
+
+            // Si la habitación NO necesita calefacción Y su switch ESTÁ encendido
+            if (sw != null && !room.needsHeating() && sw.isOn()) {
+                // Generamos la operación de apagado
+                // NO actualizamos el estado interno aquí - se actualizará DESPUÉS de que la operación física se ejecute exitosamente
+                operations.add(new Operation(sw.getSwitchUrl(), "OFF"));
+                // Recuperamos la energía que estaba consumiendo (para el cálculo de energía disponible)
+                currentConsumption -= room.getEnergyConsumption();
+            }
+        }
+
+        // --- PASO 2: ENCENDER o manejar la habitación que reportó el sensor ---
+        
+        // Recalcular energía disponible basándose en el estado actual después del PASO 1
+        double availableEnergy = maxEnergy - currentConsumption;
+        // Usar un pequeño epsilon para evitar problemas de precisión de punto flotante
+        final double EPSILON = 0.001;
+
+        DataSwitch swToTurnOn = findSwitchByUrl(reportingRoom.getSwitchUrl()).orElse(null);
+        if (swToTurnOn == null) {
+            return operations; // Si no se encuentra el switch, retornar solo las operaciones de apagado
+        }
+
+        double roomEnergy = reportingRoom.getEnergyConsumption();
+
+        // Si la habitación NO necesita calefacción, no hacemos nada más (ya se apagó en PASO 1 si estaba encendida)
+        if (!reportingRoom.needsHeating()) {
+            return operations;
+        }
+
+        // Si la habitación necesita calefacción y está apagada
+        if (!swToTurnOn.isOn()) {
+            // --- Caso A: Hay energía de sobra. La encendemos.
+            // Usar >= con epsilon para manejar precisión de punto flotante
+            if (roomEnergy <= availableEnergy + EPSILON) {
+                operations.add(new Operation(swToTurnOn.getSwitchUrl(), "ON"));
+                // NO actualizamos el estado interno aquí - se actualizará DESPUÉS de que la operación física se ejecute exitosamente
+                availableEnergy -= roomEnergy;
+
+            // --- Caso B: No hay energía. Vemos si podemos "robar" de otra menos prioritaria.
+            } else {
+                // Buscamos en las habitaciones ya encendidas si alguna tiene MENOS prioridad (menor déficit) que la que queremos encender.
+                List<Room> runningRooms = allRooms.stream()
+                        .filter(room -> findSwitchByUrl(room.getSwitchUrl()).map(DataSwitch::isOn).orElse(false))
+                        .sorted(Comparator.comparing(Room::getTemperatureDeficit)) // Ordena de menos prioritaria a más
+                        .collect(Collectors.toList());
+
+                for (Room runningRoom : runningRooms) {
+                    // Comparamos prioridades
+                    if (reportingRoom.getTemperatureDeficit() > runningRoom.getTemperatureDeficit()) {
+                        DataSwitch swToTurnOff = findSwitchByUrl(runningRoom.getSwitchUrl()).orElse(null);
+                        if (swToTurnOff == null) continue; // Saltar si no se encuentra el switch
+                        
+                        double freedEnergy = runningRoom.getEnergyConsumption();
+
+                        // Si apagando esta, ¿hay sitio para la nueva?
+                        // Usar >= con epsilon para manejar precisión de punto flotante
+                        if (availableEnergy + freedEnergy >= roomEnergy - EPSILON) {
+                            // ¡Sí! Hacemos el "swap"
+
+                            // 1. Apagar la menos prioritaria
+                            operations.add(new Operation(swToTurnOff.getSwitchUrl(), "OFF"));
+                            // NO actualizamos el estado interno aquí - se actualizará DESPUÉS de que la operación física se ejecute exitosamente
+
+                            // 2. Encender la más prioritaria
+                            operations.add(new Operation(swToTurnOn.getSwitchUrl(), "ON"));
+                            // NO actualizamos el estado interno aquí - se actualizará DESPUÉS de que la operación física se ejecute exitosamente
+
+                            // 3. Dejamos de buscar "víctimas" para esta habitación.
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+        // Si la habitación ya está encendida y necesita calefacción, no hacemos nada más
+
+        return operations;
     }
 
     /**
      * Contiene la lógica principal del controlador.
      * Decide qué switches prender o apagar basado en el estado de TODAS las habitaciones
      * y el límite de energía.
+     * Este método se usa para eventos de tiempo o cuando se necesita optimizar todo el sistema.
      */
     private List<Operation> calculateOperations() {
         List<Operation> operations = new ArrayList<>();
